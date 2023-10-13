@@ -1,5 +1,5 @@
 import pymysql
-from utils.WkLog import log
+from WkLog import log
 
 HOST = "localhost"
 USER = "root"
