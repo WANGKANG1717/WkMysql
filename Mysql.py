@@ -211,5 +211,5 @@ if __name__ == "__main__":
     # print(db.exists("key", "lL8fL1eL4kX8lQ7lD"))
     # print(db.exists("key", "lL8fL1eL4kX8lQ7lD1"))
     # print(db.select_all())
-    # print(db.update("sno", "3123358142", "key", "哈哈哈444"))
-    # print(db.update_one_property("sno", "3123358142", "key", "lL8fL1eL4kX8lQ7lD"))
+    # print(db.update("sno", "31222222222", "key", "哈哈哈444"))
+    # print(db.update_one_property("sno", "31222222222", "key", "lL8fL1eL4kX8lQ7lD"))
