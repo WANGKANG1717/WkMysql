@@ -1,3 +1,12 @@
+# -*- coding: utf-8 -*-
+# @Date     : 2023-10-13 13:00:00
+# @Author   : WangKang
+# @Blog     : kang17.xyz
+# @Email    : 1686617586@qq.com
+# @Filepath : WkMysql.py
+# @Brief    : 封装数据库操作
+# Copyright 2023 WANGKANG, All Rights Reserved.
+
 import pymysql
 from WkLog import log
 
