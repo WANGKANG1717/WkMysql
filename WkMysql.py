@@ -192,9 +192,9 @@ class DB:
 
 if __name__ == "__main__":
     db = DB()
-    obj = {"key": "哈哈哈9999999", "sno": "6666"}
-    obj2 = {"key": "哈哈哈7777", "sno": 6666}
-    print(db.update_by_objs(obj, obj2))
+    # obj = {"key": "哈哈哈9999999", "sno": "6666"}
+    # obj2 = {"key": "哈哈哈7777", "sno": 6666}
+    # print(db.update_by_objs(obj, obj2))
     # print(db.select({"key": "哈哈哈4441"}))
     # print(db.delete_row({"key": "哈哈哈55", "sno": 3}))
     # print(db.exists({"key": "哈哈哈4444", "sno": "2"}))
