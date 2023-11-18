@@ -18,7 +18,9 @@ TABLE = "authentication"
 
 
 class DB:
-    def __init__(self, host=HOST, user=USER, password=PASSWORD, database=DATABASE, table=TABLE):
+    def __init__(
+        self, host=HOST, user=USER, password=PASSWORD, database=DATABASE, table=TABLE
+    ):
         self.host = host
         self.user = user
         self.password = password
@@ -31,25 +33,45 @@ class DB:
 
     def connect_db(self):
         try:
-            self.db = pymysql.connect(host=self.host, user=self.user, passwd=self.password, database=self.database)
+            self.db = pymysql.connect(
+                host=self.host,
+                user=self.user,
+                passwd=self.password,
+                database=self.database,
+                autocommit=True,
+            )
             self.cursor = self.db.cursor()
             log.Info("连接数据库成功")
         except Exception as e:
             log.Error(f"连接数据库失败 -> {str(e)}")
             exit(0)
 
+    # 长连接时，如果长时间不进行数据库交互，连接就会关闭，再次请求就会报错
+    # 每次使用游标的时候，都调用下这个方法
+    def test_conn(self):
+        # 这两种方法本质上是一致的
+        self.db.ping(reconnect=True)
+        # try:
+        #     self.db.ping()
+        # except:
+        #     self.connect_db()
+
     # 根据关键词判断某一列是否存在
     def exists(self, column_name, value):
+        self.test_conn()
         sql = f"select 1 from {self.table} where `{column_name}` = %s limit 1"  # 考虑到列名可能有的比较特殊，因此需要使用``括起来
         try:
             self.cursor.execute(sql, value)
             return self.cursor.fetchone() != None
         except pymysql.Error as e:
-            log.Error(f"查询失败 -> {self.cursor._last_executed} -> {str(e)}")  # 打印实际执行的sql语句及异常信息
+            log.Error(
+                f"查询失败 -> {self.cursor._last_executed} -> {str(e)}"
+            )  # 打印实际执行的sql语句及异常信息
             return False
 
     # 根据字典对象判断元素是否存在
     def exists_by_obj(self, obj: dict):
+        self.test_conn()
         values = tuple(obj.values())
         param = "and ".join([f"`{column_name}` = %s" for column_name in obj.keys()])
         sql = f"select 1 from {self.table} where {param} limit 1"
@@ -62,6 +84,8 @@ class DB:
 
     # 插入单行数据
     def insert_row(self, obj: dict):
+        self.test_conn()
+        print("insert_row")
         values = tuple(obj.values())
         param1 = ", ".join([f"`{column_name}`" for column_name in obj.keys()])
         param2 = ", ".join(["%s"] * len(obj.keys()))
@@ -78,6 +102,7 @@ class DB:
     # 不会因为个别数据的添加失败导致后面的所有数据都插入失败
     # 返回成功次数和失败次数
     def insert_rows(self, obj_list: list[dict]):
+        self.test_conn()
         if not obj_list:
             return
         success = 0
@@ -91,6 +116,7 @@ class DB:
 
     # 列名和值
     def delete_row(self, column_name, value):
+        self.test_conn()
         sql = f"DELETE FROM {self.table} WHERE `{column_name}` = %s"
         try:
             self.cursor.execute(sql, value)
@@ -102,6 +128,7 @@ class DB:
 
     # 字典对象
     def delete_row_by_obj(self, obj: dict):
+        self.test_conn()
         values = tuple(obj.values())
         param = "and ".join([f"`{column_name}` = %s" for column_name in obj.keys()])
         sql = f"DELETE FROM {self.table} WHERE {param}"
@@ -115,6 +142,7 @@ class DB:
 
     # 查询所有数据
     def select_all(self):
+        self.test_conn()
         sql = f"SELECT * FROM {self.table}"
         try:
             self.cursor.execute(sql)
@@ -125,6 +153,7 @@ class DB:
 
     # 指定列名和值进行查询
     def select(self, column_name, value):
+        self.test_conn()
         sql = f"SELECT * FROM {self.table} where `{column_name}` = %s"
         try:
             self.cursor.execute(sql, value)
@@ -135,6 +164,7 @@ class DB:
 
     # 根据字典对象进行查询
     def select_by_obj(self, obj: dict):
+        self.test_conn()
         values = tuple(obj.values())
         param = "and ".join([f"`{column_name}` = %s" for column_name in obj.keys()])
         sql = f"SELECT * FROM {self.table} where {param}"
@@ -147,10 +177,12 @@ class DB:
 
     # 更新一个属性
     def update(self, column_name: str, new_value, key_column_name: str, key_value):
-        sql = f"UPDATE {self.table} set `{column_name}`=%s where `{key_column_name}` = %s"
+        self.test_conn()
+        sql = f"UPDATE {self.table} set `{column_name}` = %s where `{key_column_name}` = %s"
         try:
             self.cursor.execute(sql, (new_value, key_value))
             self.db.commit()
+            print(self.cursor._last_executed)
             return True
         except pymysql.Error as e:
             log.Error(f"数据更新失败 -> {self.cursor._last_executed} -> {str(e)}")
@@ -159,6 +191,7 @@ class DB:
 
     # 更新对象(需要传入一个字典 列名:值)
     def update_by_obj(self, obj: dict, key_column_name, key_value):
+        self.test_conn()
         values = list(obj.values()) + [key_value]
         param = ", ".join([f"`{column_name}` = %s" for column_name in obj.keys()])
         sql = f"UPDATE {self.table} set {param} where `{key_column_name}` = %s"
@@ -173,9 +206,12 @@ class DB:
 
     # 更新对象
     def update_by_objs(self, new_obj: dict, old_obj: dict):
+        self.test_conn()
         values = list(new_obj.values()) + list(old_obj.values())
         param1 = ", ".join([f"`{column_name}` = %s" for column_name in new_obj.keys()])
-        param2 = "and ".join([f"`{column_name}` = %s" for column_name in old_obj.keys()])
+        param2 = "and ".join(
+            [f"`{column_name}` = %s" for column_name in old_obj.keys()]
+        )
         sql = f"UPDATE {self.table} set {param1} where {param2}"
         try:
             self.cursor.execute(sql, values)
@@ -187,6 +223,7 @@ class DB:
             return False
 
     def get_column_names(self):
+        self.test_conn()
         sql = "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s"
         try:
             self.cursor.execute(sql, (self.database, self.table))
