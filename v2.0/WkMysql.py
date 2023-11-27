@@ -7,7 +7,10 @@
 # @Brief    : 封装数据库操作
 # Copyright 2023 WANGKANG, All Rights Reserved.
 
+from tkinter import NO
+from numpy import isin
 import pymysql
+from sympy import EX
 from WkLog_new import log
 
 HOST = "localhost"
@@ -58,13 +61,21 @@ class DB:
         # except:
         #     self.connect_db()
 
-    def get_query_params(self, obj: dict):
-        return "and ".join(
-            [
-                f"`{column_name}` {'=' if obj[column_name] is not None else 'is'} %s "
-                for column_name in obj.keys()
-            ]
-        )
+    def get_query_params(self, obj: dict | list):
+        if isinstance(obj, dict):
+            return " AND ".join(
+                [
+                    f"`{column_name}` {'=' if obj[column_name] is not None else 'is'} %s"
+                    for column_name in obj.keys()
+                ]
+            )
+        elif isinstance(obj, list):
+            return " AND ".join(
+                [
+                    f"`{column_name}` {'=' if column_name is not None else 'is'} %s"
+                    for column_name in obj
+                ]
+            )
 
     def get_set_params(self, obj: dict):
         return ", ".join(
@@ -74,14 +85,23 @@ class DB:
             ]
         )
 
-    def get_values(self, obj: dict):
-        return list(obj.values())
-
     def get_col_params(self, obj: dict | list):
         if isinstance(obj, dict):
             return ", ".join([f"`{column_name}`" for column_name in obj.keys()])
         elif isinstance(obj, list):
             return ", ".join([f"`{column_name}`" for column_name in obj])
+
+    def get_values(self, obj: dict | list):
+        if isinstance(obj, dict):
+            return list(obj.values())
+        elif isinstance(obj, list):
+            res = []
+            for o in obj:
+                res.append(self.get_values(o))
+            return res
+
+    def get_placeholders(self, length):
+        return ", ".join(["%s"] * length)
 
     def package_data(self, data_list: list | tuple, col_names: list | tuple):
         """用来封装数据: 把数据封装为json数据"""
@@ -99,27 +119,14 @@ class DB:
 
     # 根据关键词判断某一列是否存在
     def exists(self, column_name, value):
-        self.test_conn()
-        params = self.get_query_params({column_name: value})
-        sql = f"select 1 from {self.table} where {params} limit 1"  # 考虑到列名可能有的比较特殊，因此需要使用``括起来
-        try:
-            self.cursor.execute(sql, (value,))
-            flag = self.cursor.fetchone() != None
-            log.debug(
-                f"查询成功 -> {self.cursor._last_executed} -> 影响行数: {self.cursor.rowcount}"
-            )
-            return flag
-        except pymysql.Error as e:
-            # 打印实际执行的sql语句及异常信息
-            log.error(f"查询失败 -> {self.cursor._last_executed} -> {str(e)}")
-            return False
+        return self.exists_by_obj({column_name: value})
 
     # 根据字典对象判断元素是否存在
     def exists_by_obj(self, obj: dict):
         self.test_conn()
         values = self.get_values(obj)
         params = self.get_query_params(obj)
-        sql = f"select 1 from {self.table} where {params} limit 1"
+        sql = f"SELECT 1 FROM {self.table} WHERE {params} LIMIT 1"
         try:
             self.cursor.execute(sql, values)
             flag = self.cursor.fetchone() != None
@@ -137,8 +144,8 @@ class DB:
         # print("insert_row")
         values = self.get_values(obj)
         col_params = self.get_col_params(obj)
-        param2 = ", ".join(["%s"] * len(obj.keys()))
-        sql = f"INSERT INTO {self.table}({col_params}) VALUES({param2})"
+        placeholders = self.get_placeholders(len(obj))
+        sql = f"INSERT INTO {self.table}({col_params}) VALUES({placeholders})"
         try:
             self.cursor.execute(sql, values)
             self.db.commit()
@@ -154,9 +161,8 @@ class DB:
     # 不会因为个别数据的添加失败导致后面的所有数据都插入失败
     # 返回成功次数和失败次数
     def insert_rows(self, obj_list: list[dict]):
-        self.test_conn()
         if not obj_list:
-            return
+            return None
         success = 0
         fail = 0
         for obj in obj_list:
@@ -166,21 +172,30 @@ class DB:
                 fail += 1
         return {"success": success, "fail": fail}
 
-    # 列名和值
-    def delete_row(self, column_name, value):
+    def insert_many(self, col_names: list, obj_list: list[dict]):
+        """使用executemany来批量插入数据 此操作具有原子性"""
+        if not obj_list:
+            return
         self.test_conn()
-        params = self.get_query_params({column_name: value})
-        sql = f"DELETE FROM {self.table} WHERE {params}"
+        values = self.get_values(obj_list)
+        col_params = self.get_col_params(col_names)
+        placeholders = self.get_placeholders(len(col_names))
+        sql = f"INSERT INTO {self.table}({col_params}) VALUES({placeholders})"
         try:
-            self.cursor.execute(sql, (value,))
+            self.cursor.executemany(sql, values)
             self.db.commit()
             log.debug(
-                f"删除成功 -> {self.cursor._last_executed} -> 影响行数: {self.cursor.rowcount}"
+                f"插入成功 -> {self.cursor._last_executed.decode()} -> 影响行数: {self.cursor.rowcount}"
             )
             return True
         except pymysql.Error as e:
-            log.error(f"删除失败 -> {self.cursor._last_executed} -> {str(e)}")
+            self.db.rollback()
+            log.error(f"插入失败 -> {self.cursor._last_executed.decode()} -> {str(e)}")
             return False
+
+    # 列名和值
+    def delete_row(self, column_name, value):
+        return self.delete_row_by_obj({column_name: value})
 
     # 字典对象
     def delete_row_by_obj(self, obj: dict):
@@ -190,6 +205,39 @@ class DB:
         sql = f"DELETE FROM {self.table} WHERE {params}"
         try:
             self.cursor.execute(sql, values)
+            self.db.commit()
+            log.debug(
+                f"删除成功 -> {self.cursor._last_executed} -> 影响行数: {self.cursor.rowcount}"
+            )
+            return True
+        except pymysql.Error as e:
+            log.error(f"删除失败 -> {self.cursor._last_executed} -> {str(e)}")
+            return False
+
+    def delete_rows_by_obj(self, obj_list: list):
+        if not obj_list:
+            return None
+        success = 0
+        fail = 0
+        for obj in obj_list:
+            if self.delete_row_by_obj(obj):
+                success += 1
+            else:
+                fail += 1
+        return {"success": success, "fail": fail}
+
+    def delete_many_by_obj(self, col_names: list, obj_list: list[dict]):
+        """使用executemany来批量插入数据 此操作具有原子性"""
+        if not obj_list:
+            return
+        self.test_conn()
+        values = self.get_values(obj_list)
+        print(values)
+        params = self.get_query_params(col_names)
+        print(params)
+        sql = f"DELETE FROM {self.table} WHERE {params}"
+        try:
+            self.cursor.executemany(sql, values)
             self.db.commit()
             log.debug(
                 f"删除成功 -> {self.cursor._last_executed} -> 影响行数: {self.cursor.rowcount}"
@@ -218,22 +266,7 @@ class DB:
 
     # 指定列名和值进行查询
     def select(self, column_name, value):
-        self.test_conn()
-        col_names = self.get_column_names()
-        col_params = self.get_col_params(col_names)
-        query_params = self.get_query_params({column_name: value})
-        sql = f"SELECT {col_params} FROM {self.table} where {query_params}"
-        print(sql)
-        try:
-            self.cursor.execute(sql, (value,))
-            data = self.cursor.fetchall()
-            log.debug(
-                f"查询成功 -> {self.cursor._last_executed} -> 影响行数: {self.cursor.rowcount}"
-            )
-            return self.package_data(data, col_names)
-        except pymysql.Error as e:
-            log.error(f"查询失败 -> {self.cursor._last_executed} -> {str(e)}")
-            return None
+        return self.select_by_obj({column_name: value})
 
     # 根据字典对象进行查询
     def select_by_obj(self, obj: dict):
@@ -242,6 +275,7 @@ class DB:
         col_params = self.get_col_params(col_names)
         values = self.get_values(obj)
         param = self.get_query_params(obj)
+        # print(f"|{col_names}|{col_params}|{values}|{param}|")
         sql = f"SELECT {col_params} FROM {self.table} where {param}"
         try:
             self.cursor.execute(sql, values)
@@ -256,37 +290,13 @@ class DB:
 
     # 更新一个属性
     def update(self, column_name: str, new_value, key_column_name: str, key_value):
-        self.test_conn()
-        sql = f"UPDATE {self.table} set `{column_name}` = %s where `{key_column_name}` = %s"
-        try:
-            self.cursor.execute(sql, (new_value, key_value))
-            self.db.commit()
-            log.debug(
-                f"更新成功 -> {self.cursor._last_executed} -> 影响行数: {self.cursor.rowcount}"
-            )
-            return True
-        except pymysql.Error as e:
-            log.error(f"更新失败 -> {self.cursor._last_executed} -> {str(e)}")
-            self.db.rollback()
-            return False
+        return self.update_by_objs(
+            {column_name: new_value}, {key_column_name: key_value}
+        )
 
     # 更新对象(需要传入一个字典 列名:值)
     def update_by_obj(self, obj: dict, key_column_name, key_value):
-        self.test_conn()
-        values = self.get_values(obj) + [key_value]
-        param = self.get_set_params(obj)
-        sql = f"UPDATE {self.table} set {param} where `{key_column_name}` = %s"
-        try:
-            self.cursor.execute(sql, values)
-            self.db.commit()
-            log.debug(
-                f"更新成功 -> {self.cursor._last_executed} -> 影响行数: {self.cursor.rowcount}"
-            )
-            return True
-        except pymysql.Error as e:
-            log.error(f"更新失败 -> {self.cursor._last_executed} -> {str(e)}")
-            self.db.rollback()
-            return False
+        return self.update_by_objs(obj, {key_column_name: key_value})
 
     # 更新对象
     def update_by_objs(self, new_obj: dict, obj: dict):
@@ -324,40 +334,57 @@ class DB:
 
 if __name__ == "__main__":
     db = DB()
-    # print(db.exists("key", "tQ0gK2eM4fR2uD1xK"))
-    # print(db.exists("key", "tQ0gK2eM4fR2uD1xK1"))
-    # print(
-    #     db.exists_by_obj(
-    #         {"key": "tQ0gK2eM4fR2uD1xK", "sno": "3123358142", "role": "All"}
-    #     )
-    # )
-    # print(db.exists("key1", "tQ0gK2eM4fR2uD1xK"))
-    # print(db.exists_by_obj({"key": "xE2tX7cN8iZ6xQ1uG", "sno": None}))
-    # print(db.exists_by_obj({"key1": "xE2tX7cN8iZ6xQ1uG", "sno": ""}))
-    # print(db.exists_by_obj({"key": "xE2tX7cN8iZ6xQ1uG", "sno": ""}))
-    """ obj = {"key": "哈哈哈9999999", "sno": "6666"}
-    obj2 = {"key": "哈哈哈7777", "sno": 6666}
-    print(db.update_by_objs(obj, obj2)) """
-    """ print(db.select("key", "哈哈哈4441"))
-    print(db.select_by_obj({"key": "哈哈哈4441"})) """
-    # print(db.delete_row_by_obj({"key": "哈哈哈4444", "sno": 2}))
-    # print(db.delete_row_by_obj({"sno": 2}))
-    # print(db.delete_row("key", "哈哈哈9999999"))
-    """ obj = {"key": "哈哈哈4441", "sno": "2"}
-    obj2 = {"key": "哈哈哈4444", "sno": "2"}
-    obj3 = {"key": "哈哈哈55", "sno": "3"}
+    """ exists/exists_by_obj """
+    """ print(db.exists("key", "tQ0gK2eM4fR2uD1xK"))
+    print(db.exists("key", "tQ0gK2eM4fR2uD1xK1"))
+    print(db.exists("sno", None))
+    print(db.exists("sno", ""))
+    print(
+        db.exists_by_obj(
+            {"key": "tQ0gK2eM4fR2uD1xK", "sno": "3123358142", "role": "All"}
+        )
+    )
+    print(db.exists_by_obj({"key": "xE2tX7cN8iZ6xQ1uG", "sno": None}))
+    print(db.exists_by_obj({"key": "xE2tX7cN8iZ6xQ1uG", "sno": ""}))
+    print(db.exists_by_obj({"key1": "xE2tX7cN8iZ6xQ1uG", "sno": ""})) """
+    """ insert_row/insert_rows """
+    """ obj = {"key": "哈哈哈4441", "sno": "2", "role": 1}
+    obj2 = {"key": "哈哈哈4444", "sno": "2", "role": ""}
+    obj3 = {"key": "哈哈哈55", "sno": "3", "role": None}
     obj_list = [obj, obj2, obj3]
-    res = db.insert_rows(obj_list)
-    print(res) """
-    # print(db.update_by_obj({"key": "哈哈哈5521", "sno": 123, "role": 123}, "sno", "3"))
-    # print(db.get_column_names())
-    # print(db.exists("key", "lL8fL1eL4kX8lQ7lD"))
-    # print(db.exists("key", "lL8fL1eL4kX8lQ7lD1"))
+    # res = db.insert_rows(obj_list)
+    # # res = db.insert_many(["key", "sno", "role"], obj_list)
+
+    # print(res) """
+
+    """ delete """
+    """ print(db.delete_row("key", "哈哈哈9999999"))
+    print(db.delete_row("sno", "2"))
+    print(db.delete_row_by_obj({"key": "3", "sno": 2, "role": None}))
+    print(db.delete_row_by_obj({"key": "3", "sno": 3, "role": 3}))
+    print(db.delete_row_by_obj({"role": "1"}))
+    print(db.delete_rows_by_obj(obj_list)) """
+    """ # for i in range(10):
+    #     db.insert_row({"key": i})
+    data = []
+    for i in range(0, 30):
+        data.append({"key": str(i)})
+    # db.insert_rows(data)
+    db.delete_many_by_obj(["key"], data) """
+
     # print(db.select_all())
     # print(db.select("sno", "2"))
-    # print(db.select_by_obj({"sno": "2", "role": "123"}))
-    # print(db.select_by_obj({"sno": "2", "role": "123"}))
     # print(db.select("sno", None))
-    # print(db.select("role", ""))
-    # print(db.update("sno", "31222222222", "key", "哈哈哈551"))
+    # print(db.select("role", None))
+    # print(db.select_by_obj({"sno": "2", "role": "123"}))
+    # print(db.select_by_obj({"sno": "2", "role": 123}))
     # print(db.select_by_obj({"key": "哈哈哈551"}))
+
+    # obj = {"key": "哈哈哈9999999", "sno": 11111}
+    # obj2 = {"key": "哈哈哈7777", "sno": 6666, "role": 1}
+    # print(db.update_by_objs(obj, obj2))
+    # print(db.update_by_obj({"key": "哈哈哈5521", "sno": 123, "role": 123}, "sno", "2"))
+    # print(db.update_by_obj({"key": "哈哈哈111", "sno": 11, "role": 11}, "role", "123"))
+    # print(db.update("key", "哈哈哈7777", "sno", "11111"))
+    # print(db.update("role", "12313", "sno", None))
+    # print(db.get_column_names())
