@@ -1,29 +1,24 @@
 # -*- coding: utf-8 -*-
 # @Date     : 2023-10-13 13:00:00
 # @Author   : WangKang
-# @Blog     : kang17.xyz
+# @Blog     :
 # @Email    : 1686617586@qq.com
 # @Filepath : WkMysql.py
 # @Brief    : 封装数据库操作
 # Copyright 2023 WANGKANG, All Rights Reserved.
 
-from tkinter import NO
-from numpy import isin
 import pymysql
-from sympy import EX
 from WkLog_new import log
 
 HOST = "localhost"
 USER = "root"
 PASSWORD = "123456"
 DATABASE = "myproject"
-TABLE = "authentication"
+TABLE = "test_table"
 
 
 class DB:
-    def __init__(
-        self, host=HOST, user=USER, password=PASSWORD, database=DATABASE, table=TABLE
-    ):
+    def __init__(self, host=HOST, user=USER, password=PASSWORD, database=DATABASE, table=TABLE):
         self.host = host
         self.user = user
         self.password = password
@@ -138,6 +133,42 @@ class DB:
             log.error(f"查询失败 -> {self.cursor._last_executed} -> {str(e)}")
             return False
 
+    # 创建表
+    def create_table(self, obj: dict, delete_if_exists=False):
+        """
+        创建表
+        :param obj: 字典对象，键为列名，值为列类型
+        :param delete_if_exists: 是否删除原有表
+        :return: True/False
+        """
+        self.test_conn()
+        col_params = ", ".join(
+            [f"`{column_name}` {column_type}" for column_name, column_type in obj.items()]
+        )
+        if delete_if_exists:
+            self.delete_table()
+
+        sql = f"CREATE TABLE IF NOT EXISTS {self.table} ({col_params})"
+        try:
+            self.cursor.execute(sql)
+            log.debug(f"创建表成功 -> {self.cursor._last_executed}")
+            return True
+        except pymysql.Error as e:
+            log.error(f"创建表失败 -> {self.cursor._last_executed} -> {str(e)}")
+            return False
+
+    # 删除表
+    def delete_table(self):
+        self.test_conn()
+        sql = f"DROP TABLE IF EXISTS {self.table}"
+        try:
+            self.cursor.execute(sql)
+            log.debug(f"删除表成功 -> {self.cursor._last_executed}")
+            return True
+        except pymysql.Error as e:
+            log.error(f"删除表失败 -> {self.cursor._last_executed} -> {str(e)}")
+            return False
+
     # 插入单行数据
     def insert_row(self, obj: dict):
         self.test_conn()
@@ -172,14 +203,15 @@ class DB:
                 fail += 1
         return {"success": success, "fail": fail}
 
-    def insert_many(self, col_names: list, obj_list: list[dict]):
+    def insert_many(self, obj_list: list[dict]):
         """使用executemany来批量插入数据 此操作具有原子性"""
         if not obj_list:
+            log.warn("要插入的数据为空!")
             return
         self.test_conn()
         values = self.get_values(obj_list)
-        col_params = self.get_col_params(col_names)
-        placeholders = self.get_placeholders(len(col_names))
+        col_params = self.get_col_params(obj_list[0])
+        placeholders = self.get_placeholders(len(obj_list[0].keys()))
         sql = f"INSERT INTO {self.table}({col_params}) VALUES({placeholders})"
         try:
             self.cursor.executemany(sql, values)
@@ -226,14 +258,14 @@ class DB:
                 fail += 1
         return {"success": success, "fail": fail}
 
-    def delete_many_by_obj(self, col_names: list, obj_list: list[dict]):
+    def delete_many_by_obj(self, obj_list: list[dict]):
         """使用executemany来批量插入数据 此操作具有原子性"""
         if not obj_list:
+            log.warn("要删除的数据为空!")
             return
         self.test_conn()
         values = self.get_values(obj_list)
-        print(values)
-        params = self.get_query_params(col_names)
+        params = self.get_query_params(obj_list[0])
         print(params)
         sql = f"DELETE FROM {self.table} WHERE {params}"
         try:
@@ -290,9 +322,7 @@ class DB:
 
     # 更新一个属性
     def update(self, column_name: str, new_value, key_column_name: str, key_value):
-        return self.update_by_objs(
-            {column_name: new_value}, {key_column_name: key_value}
-        )
+        return self.update_by_objs({column_name: new_value}, {key_column_name: key_value})
 
     # 更新对象(需要传入一个字典 列名:值)
     def update_by_obj(self, obj: dict, key_column_name, key_value):
@@ -334,6 +364,82 @@ class DB:
 
 if __name__ == "__main__":
     db = DB()
+    # 测试create_table
+    # data = {
+    #     "id": "INT PRIMARY KEY AUTO_INCREMENT",
+    #     "label": "varchar(255)",
+    #     "_id": "varchar(255)",
+    #     "creator": "varchar(255)",
+    #     "updater": "varchar(255)",
+    #     "createTime": "varchar(255)",
+    #     "updateTime": "varchar(255)",
+    #     "userAgent": "varchar(255)",
+    #     "flowDecision": "varchar(255)",
+    #     "_widget_1616673287156": "varchar(255)",
+    #     "_widget_1679462572706": "varchar(255)",
+    #     "_widget_1617678690020": "varchar(255)",
+    #     "_widget_1615827614721": "varchar(255)",
+    #     "_widget_1615835360787": "varchar(255)",
+    #     "_widget_1615835360820": "varchar(255)",
+    #     "_widget_1615868277748": "varchar(255)",
+    #     "_widget_1679382295430": "varchar(255)",
+    #     "_widget_1680158790676": "varchar(255)",
+    #     "_widget_1615827613948": "varchar(255)",
+    #     "_widget_1615827614024": "varchar(255)",
+    #     "_widget_1616127228841": "varchar(255)",
+    #     "_widget_1646551883542": "varchar(255)",
+    #     "_widget_1615827614179": "varchar(255)",
+    #     "_widget_1615828535162": "varchar(255)",
+    #     "_widget_1615827614346": "text",
+    #     "_widget_1615853253200": "varchar(255)",
+    #     "_widget_1646552160980": "varchar(255)",
+    #     "_widget_1615827614230": "varchar(255)",
+    #     "_widget_1650676573176": "varchar(255)",
+    #     "_widget_1616138014817": "varchar(255)",
+    #     "_widget_1679319585604": "varchar(255)",
+    #     "_widget_1645530113180": "text",
+    #     "_widget_1615827614500": "varchar(255)",
+    #     "_widget_1615827614519": "varchar(255)",
+    #     "_widget_1615827614556": "varchar(255)",
+    #     "_widget_1679206290832": "varchar(255)",
+    #     "_widget_1679206291318": "varchar(255)",
+    #     "_widget_1646573100387": "varchar(255)",
+    #     "_widget_1646573100578": "varchar(255)",
+    #     "_widget_1616161492340": "varchar(255)",
+    #     "_widget_1646573100763": "varchar(255)",
+    #     "_widget_1646573103096": "varchar(255)",
+    #     "_widget_1615827614467": "varchar(255)",
+    #     "_widget_1615868277437": "varchar(255)",
+    #     "_widget_1679206291570": "varchar(255)",
+    #     "_widget_1679206291997": "varchar(255)",
+    #     "_widget_1679206292059": "varchar(255)",
+    #     "_widget_1615827614316": "text",
+    #     "_widget_1615872450096": "varchar(255)",
+    #     "_widget_1615827614331": "text",
+    #     "_widget_1615872450115": "varchar(255)",
+    #     "_widget_1646573101933": "text",
+    #     "_widget_1646573101968": "varchar(255)",
+    #     "_widget_1679206292413": "text",
+    #     "_widget_1679206292466": "varchar(255)",
+    #     "_widget_1646573101063": "varchar(255)",
+    #     "_widget_1617845711912": "varchar(255)",
+    #     "_widget_1616138013810": "varchar(255)",
+    #     "_widget_1710314345323": "varchar(255)",
+    #     "_widget_1710314345885": "varchar(255)",
+    #     "_widget_1710327754686": "varchar(255)",
+    #     "_widget_1710329993986": "varchar(255)",
+    #     "chargers_name": "varchar(255)",
+    #     "appId": "varchar(255)",
+    #     "entryId": "varchar(255)",
+    # }
+
+    # data = {
+    #     "id": "INT PRIMARY KEY AUTO_INCREMENT",
+    #     "key": "varchar(255)",
+    #     "sno": "varchar(255)",
+    #     "role": "varchar(255)",
+    # }
+    # db.create_table(data, False)
     """ exists/exists_by_obj """
     """ print(db.exists("key", "tQ0gK2eM4fR2uD1xK"))
     print(db.exists("key", "tQ0gK2eM4fR2uD1xK1"))
@@ -348,13 +454,12 @@ if __name__ == "__main__":
     print(db.exists_by_obj({"key": "xE2tX7cN8iZ6xQ1uG", "sno": ""}))
     print(db.exists_by_obj({"key1": "xE2tX7cN8iZ6xQ1uG", "sno": ""})) """
     """ insert_row/insert_rows """
-    """ obj = {"key": "哈哈哈4441", "sno": "2", "role": 1}
-    obj2 = {"key": "哈哈哈4444", "sno": "2", "role": ""}
-    obj3 = {"key": "哈哈哈55", "sno": "3", "role": None}
-    obj_list = [obj, obj2, obj3]
-    # res = db.insert_rows(obj_list)
-    # # res = db.insert_many(["key", "sno", "role"], obj_list)
-
+    """ # obj = {"key": "哈哈哈4441", "sno": "2", "role": 1}
+    # obj2 = {"key": "哈哈哈4444", "sno": "2", "role": ""}
+    # obj3 = {"key": "哈哈哈55", "sno": "3", "role": None}
+    # obj_list = [obj, obj2, obj3]
+    # # res = db.insert_rows(obj_list)
+    # res = db.insert_many(obj_list)
     # print(res) """
 
     """ delete """
@@ -368,9 +473,9 @@ if __name__ == "__main__":
     #     db.insert_row({"key": i})
     data = []
     for i in range(0, 30):
-        data.append({"key": str(i)})
+        data.append({"id": str(i)})
     # db.insert_rows(data)
-    db.delete_many_by_obj(["key"], data) """
+    db.delete_many_by_obj(data) """
 
     # print(db.select_all())
     # print(db.select("sno", "2"))
