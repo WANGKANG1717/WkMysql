@@ -13,6 +13,7 @@ import sys
 from WkLog_new import log
 
 HOST = "localhost"
+PORT = 3306
 USER = "root"
 PASSWORD = "123456"
 DATABASE = "myproject"
@@ -26,7 +27,7 @@ class DB:
         user=USER,
         password=PASSWORD,
         database=DATABASE,
-        port=3306,
+        port=PORT,
         cursorclass=cursors.DictCursor,
         **kwargs,
     ):
@@ -59,6 +60,9 @@ class DB:
             msg = f"Failed to connect to database! -> {str(e)}"
             log.error(msg)
             raise Exception(msg)
+
+    def close_db(self):
+        self.conn.close()
 
     def before_execute(func):
         def wrapper(self, *args, **kwargs):
@@ -146,10 +150,12 @@ class DB:
     def __print_info(self, cursor, func_name, success=True, error_msg=None):
         if success:
             log.debug(
-                f"Success -> {func_name} -> {cursor._executed} -> Rows affected: {cursor.rowcount}"
+                f"Success: {func_name} -> {cursor._executed if type(cursor._executed) == str else cursor._executed.decode()} -> Rows affected: {cursor.rowcount}"
             )
         else:
-            log.error(f"Failure -> {func_name} -> {cursor._executed} -> {error_msg}")
+            log.error(
+                f"Failure: {func_name} -> {f'{cursor._executed if type(cursor._executed) == str else cursor._executed.decode()}' if cursor._executed else 'None'} -> {error_msg}"
+            )
 
     def set_table(self, table):
         self.table = table
@@ -451,139 +457,3 @@ class DB:
             )
             self.conn.rollback()
             return False
-
-
-if __name__ == "__main__":
-    db = DB()
-    """ exists/exists_by_obj """
-    db.set_table(TABLE)
-    # print(db.set_table("gym_reserve").get_column_names())
-    # print(db.exists(key="tQ0gK2eM4fR2uD1xK"))
-    # print(db.exists(key="tQ0gK2eM4fR2uD1xK1"))
-    # print(db.exists(sno=None))
-    # print(db.set_table(TABLE).exists(sno=""))
-    # print(
-    #     db.set_table(TABLE).exists({"key": "tQ0gK2eM4fR2uD1xK", "sno": "3123358142", "role": "All"})
-    # )
-    # print(db.set_table(TABLE).exists({"key": "xE2tX7cN8iZ6xQ1uG", "sno": None}))
-    # print(db.set_table(TABLE).exists({"key": "xE2tX7cN8iZ6xQ1uG", "sno": ""}))
-    # print(db.set_table(TABLE).exists({"key1": "xE2tX7cN8iZ6xQ1uG", "sno": ""}))
-    """ insert_row/insert_rows """
-    """ obj = {"key": "哈哈哈4441", "sno": "2", "role": 1}
-    obj2 = {"key": "哈哈哈4444", "sno": "2", "role": ""}
-    obj3 = {"key": "哈哈哈55", "sno": "3", "role": None}
-    obj_list = [obj, obj2, obj3]
-    # res = db.insert_rows(obj_list)
-    # res = db.set_table(TABLE).insert_row(id=2, key="wangkang", sno="3123358142", role="All")
-    res = db.insert_many(obj_list)
-    print(res) """
-
-    """ delete """
-    """ obj = {"key": "哈哈哈4441", "sno": "2", "role": 1}
-    obj2 = {"key": "哈哈哈4444", "sno": "2", "role": ""}
-    obj3 = {"key": "哈哈哈55", "sno": "3", "role": None}
-    obj_list = [obj, obj2, obj3]
-    # db.set_table(TABLE).insert_many(obj_list)
-    # print(db.delete_row(key="哈哈哈9999999"))
-    # print(db.delete_row(sno="2"))
-    # print(db.delete_row({"key": "3", "sno": 2, "role": None}))
-    # print(db.delete_row({"key": "3", "sno": 3, "role": 3}))
-    # print(db.delete_row({"role": "1"}))
-    # # print(db.delete_rows(obj_list)) """
-    # for i in range(10):
-    #     db.insert_row({"key": i})
-    # data = []
-    # for i in range(0, 30):
-    #     data.append({"id": str(i)})
-    # # db.insert_rows(data)
-    # db.delete_many(data)
-
-    # print(db.select_all())
-    # print(db.select(sno=2))
-    # print(db.select(sno=None))
-    # print(db.select(role=None))
-    # print(db.select({"sno": "2", "role": "123"}))
-    # print(db.select({"sno": "2", "role": 123}))
-    # print(db.select({"key": "哈哈哈551"}))
-
-    # obj = {"sno": 2}
-    # obj2 = {"key": "哈哈哈7777", "sno": 12, "role": 1}
-    # print(db.update(obj, obj2))
-
-    # 测试create_table
-    # data = {
-    #     "id": "INT PRIMARY KEY AUTO_INCREMENT",
-    #     "label": "varchar(255)",
-    #     "_id": "varchar(255)",
-    #     "creator": "varchar(255)",
-    #     "updater": "varchar(255)",
-    #     "createTime": "varchar(255)",
-    #     "updateTime": "varchar(255)",
-    #     "userAgent": "varchar(255)",
-    #     "flowDecision": "varchar(255)",
-    #     "_widget_1616673287156": "varchar(255)",
-    #     "_widget_1679462572706": "varchar(255)",
-    #     "_widget_1617678690020": "varchar(255)",
-    #     "_widget_1615827614721": "varchar(255)",
-    #     "_widget_1615835360787": "varchar(255)",
-    #     "_widget_1615835360820": "varchar(255)",
-    #     "_widget_1615868277748": "varchar(255)",
-    #     "_widget_1679382295430": "varchar(255)",
-    #     "_widget_1680158790676": "varchar(255)",
-    #     "_widget_1615827613948": "varchar(255)",
-    #     "_widget_1615827614024": "varchar(255)",
-    #     "_widget_1616127228841": "varchar(255)",
-    #     "_widget_1646551883542": "varchar(255)",
-    #     "_widget_1615827614179": "varchar(255)",
-    #     "_widget_1615828535162": "varchar(255)",
-    #     "_widget_1615827614346": "text",
-    #     "_widget_1615853253200": "varchar(255)",
-    #     "_widget_1646552160980": "varchar(255)",
-    #     "_widget_1615827614230": "varchar(255)",
-    #     "_widget_1650676573176": "varchar(255)",
-    #     "_widget_1616138014817": "varchar(255)",
-    #     "_widget_1679319585604": "varchar(255)",
-    #     "_widget_1645530113180": "text",
-    #     "_widget_1615827614500": "varchar(255)",
-    #     "_widget_1615827614519": "varchar(255)",
-    #     "_widget_1615827614556": "varchar(255)",
-    #     "_widget_1679206290832": "varchar(255)",
-    #     "_widget_1679206291318": "varchar(255)",
-    #     "_widget_1646573100387": "varchar(255)",
-    #     "_widget_1646573100578": "varchar(255)",
-    #     "_widget_1616161492340": "varchar(255)",
-    #     "_widget_1646573100763": "varchar(255)",
-    #     "_widget_1646573103096": "varchar(255)",
-    #     "_widget_1615827614467": "varchar(255)",
-    #     "_widget_1615868277437": "varchar(255)",
-    #     "_widget_1679206291570": "varchar(255)",
-    #     "_widget_1679206291997": "varchar(255)",
-    #     "_widget_1679206292059": "varchar(255)",
-    #     "_widget_1615827614316": "text",
-    #     "_widget_1615872450096": "varchar(255)",
-    #     "_widget_1615827614331": "text",
-    #     "_widget_1615872450115": "varchar(255)",
-    #     "_widget_1646573101933": "text",
-    #     "_widget_1646573101968": "varchar(255)",
-    #     "_widget_1679206292413": "text",
-    #     "_widget_1679206292466": "varchar(255)",
-    #     "_widget_1646573101063": "varchar(255)",
-    #     "_widget_1617845711912": "varchar(255)",
-    #     "_widget_1616138013810": "varchar(255)",
-    #     "_widget_1710314345323": "varchar(255)",
-    #     "_widget_1710314345885": "varchar(255)",
-    #     "_widget_1710327754686": "varchar(255)",
-    #     "_widget_1710329993986": "varchar(255)",
-    #     "chargers_name": "varchar(255)",
-    #     "appId": "varchar(255)",
-    #     "entryId": "varchar(255)",
-    # }
-
-    # data = {
-    #     "id": "INT PRIMARY KEY AUTO_INCREMENT",
-    #     "key": "varchar(255)",
-    #     "sno": "varchar(255)",
-    #     "role": "varchar(255)",
-    # }
-    # db.set_table("test").create_table(data, False)
-    # db.set_table("test").delete_table()
