@@ -7,8 +7,10 @@
 # @Brief    : Mysql连接池
 # Copyright 2024 WANGKANG, All Rights Reserved.
 from WkMysql import DB
-from threading import Condition
 import time
+from queue import Queue
+from threading import Lock
+from contextlib import contextmanager
 
 HOST = "localhost"
 PORT = 3306
@@ -29,7 +31,7 @@ class WkMysqlPool:
         max_conn=10,
         min_conn=3,
         connection_timeout=10000,  # 连接超时：10秒
-        idle_timeout=60000,  # 空闲超时：60秒
+        max_idle_timeout=60000,  # 最大空闲超时：60秒
         **kwargs,
     ):
         self.host = host
@@ -37,30 +39,22 @@ class WkMysqlPool:
         self.password = password
         self.database = database
         self.port = port
-        self.max_conn = max_conn
-        self.min_conn = min_conn
-        self.connection_timeout = connection_timeout / 1000  # 转换为秒
-        self.idle_timeout = idle_timeout
+        self.max_conn: int = max_conn  # 最大连接数
+        self.min_conn: int = min_conn  # 最小连接数
+        self.connection_timeout: int = connection_timeout / 1000  # 转换为秒
+        self.max_idle_timeout: int = max_idle_timeout
         self.kwargs = kwargs
 
-        self.pool = self.init_pool()
-        self.curr_conn = len(self.pool)
-        self.lock = Condition()
+        self.lock = Lock()
+        self.pool: Queue = self._init_pool()
 
-    def init_pool(self):
-        pool = []
+    def _init_pool(self):
+        pool = Queue(self.max_conn)
         for _ in range(self.min_conn):
-            pool.append(self.new_conn())
+            pool.put((self._create_connection(), time.time()))  # 初始化最小连接, 同时记录时间戳
         return pool
 
-    def with_lock(func):
-        def wrapper(self, *args, **kwargs):
-            with self.lock:
-                return func(self, *args, **kwargs)
-
-        return wrapper
-
-    def new_conn(self) -> DB:
+    def _create_connection(self) -> DB:
         # print("new_conn")
         return DB(
             host=self.host,
@@ -71,49 +65,37 @@ class WkMysqlPool:
             **self.kwargs,
         )
 
-    @with_lock
-    def get_conn(self) -> DB:
-        # print("get_conn")
-        if not self.pool:
-            if self.curr_conn < self.max_conn:
-                conn = self.new_conn()
-                self.curr_conn += 1
-                return conn
-            else:
-                start_time = time.time()
-                self.lock.wait(self.connection_timeout)  # 等待空闲超时
-                wait_time = time.time() - start_time
-                if wait_time > self.connection_timeout:
-                    raise TimeoutError(f"获取连接超时!")
-                return self.get_conn()
+    def with_lock(func):
+        def wrapper(self, *args, **kwargs):
+            with self.lock:
+                return func(self, *args, **kwargs)
 
-        return self.pop_conn()
+        return wrapper
 
-    @with_lock
-    def put_conn(self, conn: DB):
-        # print("put_conn", conn)
-        self.pool.append(conn)
-        self.lock.notify(1)
+    def get_connection(self) -> DB:
+        with self.lock:
+            print("get_connection")
+            if self.pool.empty():
+                conn = self._create_connection()
+                self.pool.put((conn, time.time()))
 
-    @with_lock
-    def pop_conn(self):
-        # print("pop_conn")
-        return self.pool.pop()
+            conn, last_time = self.pool.get()
+            return conn
 
-    @with_lock
-    def close(self, conn: DB):
-        # print("close", conn)
-        conn.close_db()
-        self.curr_conn -= 1
+    @contextmanager
+    def get_conn(self):
+        conn = self.get_connection()
+        try:
+            yield conn  # 提供连接给调用者
+        finally:
+            # 在上下文退出后释放连接
+            self.release_connection(conn)
 
-    @with_lock
-    def close_all(self):
-        # print("close_all")
-        while self.pool:
-            conn = self.pool.pop()
-            conn.close_db()
-            self.curr_conn -= 1
-            # print(self.curr_conn, "=========")
+    def release_connection(self, conn: DB):
+        print("release_connection")
+        if self.pool.full():
+            conn.close()
+        self.pool.put((conn, time.time()))
 
 
 if __name__ == "__main__":
@@ -137,23 +119,30 @@ if __name__ == "__main__":
     print(pool.pool)
 
     def sleep(time_):
+        print("sleep", time_)
         time.sleep(time_)
         if not pool.pool:
             conn = tmp_pool.pop()
+            print("@@@@@@@@@@@@@@@@")
             pool.put_conn(conn)
+            print("$$$$$$$$$$$$")
 
     for _ in range(10):
         print(_)
-        if _ == 5:
-            import threading
+        # if _ == 5:
+        #     import threading
 
-            threading.Thread(target=sleep, args=(0.5,)).start()
-        conn = pool.get_conn()
-        print(conn)
-        tmp_pool.append(conn)
+        #     threading.Thread(target=sleep, args=(1,)).start()
+        # conn = pool.get_connection()
+        # print("conn:", conn)
+        # pool.release_connection(conn)
+        # tmp_pool.append(conn)
+        # print("tmp_pool:", tmp_pool)
+        with pool.get_conn() as conn:
+            print("conn:", conn)
 
     for conn in tmp_pool:
-        pool.put_conn(conn)
+        pool.release_connection(conn)
     print(pool.pool)
-    pool.close_all()
+    # pool.close_all()
     print(pool.pool)
