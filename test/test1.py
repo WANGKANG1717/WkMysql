@@ -1,7 +1,10 @@
 from WkMysql import DB, TABLE
+from pymysql.cursors import Cursor
 
 if __name__ == "__main__":
     db = DB()
+    db.set_table(TABLE)
+    print(db.select_all())
     """ exists/exists_by_obj """
     # db.set_table(TABLE)
     # print(db.set_table("gym_reserve").get_column_names())
