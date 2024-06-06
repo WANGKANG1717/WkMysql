@@ -457,3 +457,6 @@ class DB:
             )
             self.conn.rollback()
             return False
+
+    def close(self):
+        self.conn.close()
