@@ -79,19 +79,12 @@ class DB:
         长连接时，如果长时间不进行数据库交互，连接就会关闭，再次请求就会报错
         每次使用游标的时候，都调用下这个方法
         """
-        # print("__test_conn")
-        # while True:
-        #     try:
-        #         self.conn.ping()
-        #         break
-        #     except:
-        #         self.conn.ping(True)
-        # 这两种方法本质上是一致的
-        self.conn.ping(reconnect=True)
-        # try:
-        #     self.conn.ping()
-        # except:
-        #     self.connect_db()
+        # log.debug("__test_conn")
+        # self.conn.ping()
+        try:
+            self.conn.ping()
+        except:
+            self.conn = self.connect_db()
 
     def __get_query_params(self, obj: dict | list):
         if isinstance(obj, dict):
