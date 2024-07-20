@@ -7,10 +7,14 @@
 # @Brief    : 封装数据库操作
 # Copyright 2023 WANGKANG, All Rights Reserved.
 
+""" 
+项目地址：https://gitee.com/purify_wang/wkmysql
+"""
+
 import pymysql
 from pymysql import cursors
 import sys
-from WkLog_new import log
+from WkLog import log
 
 HOST = "localhost"
 PORT = 3306
@@ -88,27 +92,12 @@ class DB:
 
     def __get_query_params(self, obj: dict | list):
         if isinstance(obj, dict):
-            return " AND ".join(
-                [
-                    f"`{column_name}` {'=' if obj[column_name] is not None else 'is'} %s"
-                    for column_name in obj.keys()
-                ]
-            )
+            return " AND ".join([f"`{column_name}` {'=' if obj[column_name] is not None else 'is'} %s" for column_name in obj.keys()])
         elif isinstance(obj, list):
-            return " AND ".join(
-                [
-                    f"`{column_name}` {'=' if column_name is not None else 'is'} %s"
-                    for column_name in obj
-                ]
-            )
+            return " AND ".join([f"`{column_name}` {'=' if column_name is not None else 'is'} %s" for column_name in obj])
 
     def __get_set_params(self, obj: dict):
-        return ", ".join(
-            [
-                f"`{column_name}` {'=' if obj[column_name] is not None else 'is'} %s"
-                for column_name in obj.keys()
-            ]
-        )
+        return ", ".join([f"`{column_name}` {'=' if obj[column_name] is not None else 'is'} %s" for column_name in obj.keys()])
 
     def __get_col_params(self, obj: dict | list):
         if isinstance(obj, dict):
@@ -142,13 +131,9 @@ class DB:
 
     def __print_info(self, cursor, func_name, success=True, error_msg=None):
         if success:
-            log.debug(
-                f"Success: {func_name} -> {cursor._executed if type(cursor._executed) == str else cursor._executed.decode()} -> Rows affected: {cursor.rowcount}"
-            )
+            log.debug(f"Success: {func_name} -> {cursor._executed if type(cursor._executed) == str else cursor._executed.decode()} -> Rows affected: {cursor.rowcount}")
         else:
-            log.error(
-                f"Failure: {func_name} -> {f'{cursor._executed if type(cursor._executed) == str else cursor._executed.decode()}' if cursor._executed else 'None'} -> {error_msg}"
-            )
+            log.error(f"Failure: {func_name} -> {f'{cursor._executed if type(cursor._executed) == str else cursor._executed.decode()}' if cursor._executed else 'None'} -> {error_msg}")
 
     def set_table(self, table):
         self.table = table
@@ -162,9 +147,7 @@ class DB:
         :param delete_if_exists: 是否删除原有表
         :return: True/False
         """
-        col_params = ", ".join(
-            [f"`{column_name}` {column_type}" for column_name, column_type in obj.items()]
-        )
+        col_params = ", ".join([f"`{column_name}` {column_type}" for column_name, column_type in obj.items()])
         if delete_if_exists:
             self.delete_table()
 
@@ -175,9 +158,7 @@ class DB:
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
             return True
         except pymysql.Error as e:
-            self.__print_info(
-                cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e)
-            )
+            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
             return False
 
     @before_execute
@@ -193,9 +174,7 @@ class DB:
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
             return True
         except pymysql.Error as e:
-            self.__print_info(
-                cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e)
-            )
+            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
             return False
 
     def get_column_names(self):
@@ -209,9 +188,7 @@ class DB:
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
             return res
         except pymysql.Error as e:
-            self.__print_info(
-                cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e)
-            )
+            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
             return []
 
     @before_execute
@@ -235,9 +212,7 @@ class DB:
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
             return flag
         except pymysql.Error as e:
-            self.__print_info(
-                cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e)
-            )
+            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
             return False
 
     @before_execute
@@ -262,9 +237,7 @@ class DB:
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
             return True
         except pymysql.Error as e:
-            self.__print_info(
-                cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e)
-            )
+            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
             return False
 
     def insert_rows(self, obj_list: list[dict]):
@@ -306,9 +279,7 @@ class DB:
             return True
         except pymysql.Error as e:
             self.conn.rollback()
-            self.__print_info(
-                cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e)
-            )
+            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
             return False
 
     @before_execute
@@ -332,9 +303,7 @@ class DB:
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
             return True
         except pymysql.Error as e:
-            self.__print_info(
-                cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e)
-            )
+            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
             return False
 
     def delete_rows(self, obj_list: list):
@@ -374,9 +343,7 @@ class DB:
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
             return True
         except pymysql.Error as e:
-            self.__print_info(
-                cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e)
-            )
+            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
             return False
 
     @before_execute
@@ -393,9 +360,7 @@ class DB:
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
             return data
         except pymysql.Error as e:
-            self.__print_info(
-                cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e)
-            )
+            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
             return None
 
     @before_execute
@@ -421,9 +386,7 @@ class DB:
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
             return data
         except pymysql.Error as e:
-            self.__print_info(
-                cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e)
-            )
+            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
             return None
 
     @before_execute
@@ -445,9 +408,7 @@ class DB:
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
             return True
         except pymysql.Error as e:
-            self.__print_info(
-                cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e)
-            )
+            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
             self.conn.rollback()
             return False
 
