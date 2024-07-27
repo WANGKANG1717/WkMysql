@@ -235,13 +235,12 @@ class DB:
             with self.conn.cursor() as cursor:
                 cursor.execute(sql, values)
                 self.conn.commit()
-                insert_id = cursor.lastrowid  # 获取插入数据的自增ID,如果没有自增ID，则返回0
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
-            return True, insert_id
+                return cursor.rowcount, cursor.lastrowid  # 获取插入数据的自增ID,如果没有自增ID，则返回0
         except pymysql.Error as e:
             self.conn.rollback()
             self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
-            return False, -1
+            return -1, -1
 
     def insert_rows(self, obj_list: list[dict]):
         """
@@ -255,7 +254,7 @@ class DB:
         fail = 0
         for obj in obj_list:
             flag, _ = self.insert_row(obj)
-            if flag:
+            if flag > 0:
                 success += 1
             else:
                 fail += 1
@@ -280,7 +279,7 @@ class DB:
                 cursor.executemany(sql, values)
                 self.conn.commit()
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
-            return True
+                return cursor.rowcount
         except Exception as e:
             self.conn.rollback()
             self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
@@ -305,11 +304,11 @@ class DB:
                 cursor.execute(sql, values)
                 self.conn.commit()
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
-            return True
+                return cursor.rowcount
         except pymysql.Error as e:
             self.conn.rollback()
             self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
-            return False
+            return -1
 
     def delete_rows(self, obj_list: list):
         """
@@ -321,7 +320,7 @@ class DB:
         success = 0
         fail = 0
         for obj in obj_list:
-            if self.delete_row(obj):
+            if self.delete_row(obj) > 0:
                 success += 1
             else:
                 fail += 1
@@ -339,18 +338,18 @@ class DB:
             return
         values = self.__get_values(obj_list)
         params = self.__get_query_params(obj_list[0])
-        print(params)
+        # print(params)
         sql = f"DELETE FROM {self.table} WHERE {params}"
         try:
             with self.conn.cursor() as cursor:
                 cursor.executemany(sql, values)
                 self.conn.commit()
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
-            return True
+                return cursor.rowcount
         except pymysql.Error as e:
             self.conn.rollback()
             self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
-            return False
+            return -1
 
     @before_execute
     def select_all(self):
@@ -437,8 +436,31 @@ class DB:
                 cursor.execute(sql, values)
                 self.conn.commit()
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
-            return True
+                return cursor.rowcount
         except pymysql.Error as e:
             self.conn.rollback()
             self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
-            return False
+            return -1
+
+    @before_execute
+    def execute(self, sql, values=None):
+        """
+        执行SQL语句
+        :param sql: SQL语句
+        :param values: 列表，元素为SQL语句中占位符对应的值
+        :return: 影响行数
+
+        - demo:
+            - execute("INSERT INTO table_name(col1, col2) VALUES(%s, %s)", [1, "test"])
+            - execute("UPDATE table_name SET col1=%s WHERE col2=%s", [2, "test"])
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(sql, values)
+                self.conn.commit()
+                self.__print_info(cursor, sys._getframe().f_code.co_name)
+                return cursor.rowcount
+        except pymysql.Error as e:
+            self.conn.rollback()
+            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
+            return -1
