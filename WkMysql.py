@@ -239,6 +239,7 @@ class DB:
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
             return True, insert_id
         except pymysql.Error as e:
+            self.conn.rollback()
             self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
             return False, -1
 
@@ -306,6 +307,7 @@ class DB:
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
             return True
         except pymysql.Error as e:
+            self.conn.rollback()
             self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
             return False
 
@@ -346,6 +348,7 @@ class DB:
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
             return True
         except pymysql.Error as e:
+            self.conn.rollback()
             self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
             return False
 
@@ -436,6 +439,6 @@ class DB:
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
             return True
         except pymysql.Error as e:
-            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
             self.conn.rollback()
+            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
             return False
