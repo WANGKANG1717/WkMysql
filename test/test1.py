@@ -2,9 +2,16 @@ from WkMysql import DB, TABLE
 from pymysql.cursors import Cursor
 
 if __name__ == "__main__":
+    # db = DB(cursorclass=Cursor)
     db = DB()
-    db.set_table(TABLE)
-    print(db.select_all())
+    # db.set_table(TABLE)
+    # res = db.execute("UPDATE `test_table` SET `key`=%s WHERE `sno`=%s", [22, 0])
+    # print(res)
+    # res = db.update({"id": 1111}, {"id": 1})
+    # print(res)
+    # print(db.select_all())
+    # print(db.select_one(id="31"))
+    # print(db.select_one(key="哈哈哈7777"))
     """ exists/exists_by_obj """
     # db.set_table(TABLE)
     # print(db.set_table("gym_reserve").get_column_names())
@@ -12,9 +19,7 @@ if __name__ == "__main__":
     # print(db.exists(key="tQ0gK2eM4fR2uD1xK1"))
     # print(db.exists(sno=None))
     # print(db.set_table(TABLE).exists(sno=""))
-    # print(
-    #     db.set_table(TABLE).exists({"key": "tQ0gK2eM4fR2uD1xK", "sno": "3123358142", "role": "All"})
-    # )
+    # print(db.set_table(TABLE).exists({"key": "tQ0gK2eM4fR2uD1xK", "sno": "3123358142", "role": "All"}))
     # print(db.set_table(TABLE).exists({"key": "xE2tX7cN8iZ6xQ1uG", "sno": None}))
     # print(db.set_table(TABLE).exists({"key": "xE2tX7cN8iZ6xQ1uG", "sno": ""}))
     # print(db.set_table(TABLE).exists({"key1": "xE2tX7cN8iZ6xQ1uG", "sno": ""}))
@@ -23,33 +28,38 @@ if __name__ == "__main__":
     obj = {"key": "哈哈哈4441", "sno": "2222222222222222222", "role": 1}
     obj2 = {"key": "哈哈哈4444", "sno": "333333333333333333333", "role": ""}
     obj3 = {"key": "哈哈哈55", "sno": "444444444444444444' or 1=1", "role": None}
+    id = db.insert_row(obj2)
+    print(id)
     obj_list = [obj, obj2, obj3]
     res = db.insert_rows(obj_list)
+    print(res)
     res = db.set_table(TABLE).insert_row(id=22, key="wangkang", sno="3123358142", role="All")
+    print(res)
     res = db.insert_many(obj_list)
     print(res) """
 
     """ delete """
-    # obj = {"key": "哈哈哈4441", "sno": "2", "role": 1}
-    # obj2 = {"key": "哈哈哈4444", "sno": "2", "role": ""}
-    # obj3 = {"key": "哈哈哈55", "sno": "3", "role": None}
-    # obj_list = [obj, obj2, obj3]
-    # db.set_table(TABLE).insert_many(obj_list)
-    # print(db.delete_row(key="哈哈哈4444"))
-    # print(db.delete_row(sno="2"))
-    # print(db.delete_row({"key": "3", "sno": 2, "role": None}))
-    # print(db.delete_row({"key": "3", "sno": 3, "role": 3}))
-    # print(db.delete_row({"role": "1"}))
-    # print(db.delete_rows(obj_list))
-    # for i in range(10):
-    #     db.insert_row({"key": i})
+    """ obj = {"key": "哈哈哈4441", "sno": "2", "role": 1}
+    obj2 = {"key": "哈哈哈4444", "sno": "2", "role": ""}
+    obj3 = {"key": "哈哈哈55", "sno": "3", "role": None}
+    obj_list = [obj, obj2, obj3]
+    print(db.set_table(TABLE).insert_many(obj_list))
+    print(db.delete_row(key="哈哈哈4444"))
+    print(db.delete_row(sno="2"))
+    print(db.delete_row({"key": "3", "sno": 2, "role": None}))
+    print(db.delete_row({"key": "3", "sno": 3, "role": 3}))
+    print(db.delete_row({"role": "1"}))
+    print(db.delete_rows(obj_list))
+    for i in range(10):
+        print(db.insert_row({"key": i}))
+    """
     # data = []
-    # for i in range(0, 30):
-    #     data.append({"id": str(i)})
-    # db.insert_rows(data)
-    # db.delete_many(data)
+    # for i in range(0, 3000):
+    #     data.append({"key": str(i), "sno": str(i), "role": str(i)})
+    # print(db.insert_rows(data))
+    # print(db.delete_many(data))
 
-    db.set_table(TABLE)
+    # db.set_table(TABLE)
     # print(db.select_all())
     # print(db.select(sno=2))
     # print(db.select(sno=None))
