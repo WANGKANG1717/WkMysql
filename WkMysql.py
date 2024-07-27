@@ -65,9 +65,6 @@ class DB:
             log.error(msg)
             raise Exception(msg)
 
-    def close_db(self):
-        self.conn.close()
-
     def before_execute(func):
         def wrapper(self, *args, **kwargs):
             self.__test_conn()
@@ -195,9 +192,9 @@ class DB:
     def exists(self, *args, **kwargs):
         """
         根据字典对象判断元素是否存在
-        demo:
-            exists({"id": 1, "name": "wangkang"})
-            exists({id=1, name=wangkang})
+        - demo:
+            - exists({"id": 1, "name": "wangkang"})
+            - exists({id=1, name=wangkang})
         """
         self.__validate_args(args, kwargs)
         obj = args[0] if args else kwargs
@@ -219,9 +216,9 @@ class DB:
     def insert_row(self, *args, **kwargs):
         """
         插入一行数据
-        demo:
-            insert_row({"id": 1, "name": "wangkang"})
-            insert_row(id=1, name=wangkang)
+        - demo:
+            - insert_row({"id": 1, "name": "wangkang"})
+            - insert_row(id=1, name=wangkang)
         """
         self.__validate_args(args, kwargs)
         obj = args[0] if args else kwargs
@@ -286,9 +283,9 @@ class DB:
     def delete_row(self, *args, **kwargs):
         """
         根据条件删除一行数据
-        demo:
-            delete_row({"id": 1, "name": "wangkang"})
-            delete_row(id=1, name=wangkang)
+        - demo:
+            - delete_row({"id": 1, "name": "wangkang"})
+            - delete_row(id=1, name=wangkang)
         """
         self.__validate_args(args, kwargs)
         obj = args[0] if args else kwargs
@@ -368,9 +365,9 @@ class DB:
         """
         根据条件进行查询
         :return: 列表，元素为字典对象，键为列名，值为列值
-        demo:
-            select({"id": 1, "name": "wangkang"})
-            select(id=1, name=wangkang)
+        - demo:
+            - select({"id": 1, "name": "wangkang"})
+            - select(id=1, name=wangkang)
         """
         self.__validate_args(args, kwargs)
         obj = args[0] if args else kwargs
@@ -383,6 +380,31 @@ class DB:
             with self.conn.cursor() as cursor:
                 cursor.execute(sql, values)
                 data = cursor.fetchall()
+                self.__print_info(cursor, sys._getframe().f_code.co_name)
+            return data
+        except pymysql.Error as e:
+            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
+            return None
+
+    @before_execute
+    def select_one(self, *args, **kwargs):
+        """
+        根据条件进行查询，只返回第一条数据
+        :return: 字典对象，键为列名，值为列值
+        - demo:
+            - select_one({"id": 1, "name": "wangkang"})
+            - select_one(id=1, name=wangkang)
+        """
+        self.__validate_args(args, kwargs)
+        obj = args[0] if args else kwargs
+
+        values = self.__get_values(obj)
+        param = self.__get_query_params(obj)
+        sql = f"SELECT * FROM {self.table} where {param} LIMIT 1"
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(sql, values)
+                data = cursor.fetchone()
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
             return data
         except pymysql.Error as e:
