@@ -65,6 +65,9 @@ class DB:
             log.error(msg)
             raise Exception(msg)
 
+    def close(self):
+        self.conn.close()
+
     def before_execute(func):
         def wrapper(self, *args, **kwargs):
             self.__test_conn()
@@ -216,6 +219,7 @@ class DB:
     def insert_row(self, *args, **kwargs):
         """
         插入一行数据
+        :return: True/False, insert_id
         - demo:
             - insert_row({"id": 1, "name": "wangkang"})
             - insert_row(id=1, name=wangkang)
@@ -231,11 +235,12 @@ class DB:
             with self.conn.cursor() as cursor:
                 cursor.execute(sql, values)
                 self.conn.commit()
+                insert_id = cursor.lastrowid  # 获取插入数据的自增ID,如果没有自增ID，则返回0
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
-            return True
+            return True, insert_id
         except pymysql.Error as e:
             self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
-            return False
+            return False, -1
 
     def insert_rows(self, obj_list: list[dict]):
         """
@@ -248,7 +253,8 @@ class DB:
         success = 0
         fail = 0
         for obj in obj_list:
-            if self.insert_row(obj):
+            flag, _ = self.insert_row(obj)
+            if flag:
                 success += 1
             else:
                 fail += 1
@@ -274,7 +280,7 @@ class DB:
                 self.conn.commit()
                 self.__print_info(cursor, sys._getframe().f_code.co_name)
             return True
-        except pymysql.Error as e:
+        except Exception as e:
             self.conn.rollback()
             self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
             return False
@@ -433,6 +439,3 @@ class DB:
             self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
             self.conn.rollback()
             return False
-
-    def close(self):
-        self.conn.close()
