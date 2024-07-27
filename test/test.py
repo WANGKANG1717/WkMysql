@@ -1,4 +1,4 @@
-from WkLog_new import log
+from WkLog import log
 
 
 def before_execute(func):

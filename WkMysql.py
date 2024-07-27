@@ -4,7 +4,7 @@
 # @Blog     :
 # @Email    : 1686617586@qq.com
 # @Filepath : WkMysql.py
-# @Brief    : 封装数据库操作
+# @Brief    : 封装数据库操作，适合单线程使用，且短时间连接数据库
 # Copyright 2023 WANGKANG, All Rights Reserved.
 
 """ 
