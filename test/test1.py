@@ -1,9 +1,16 @@
-from WkMysql import DB, TABLE
+from WkMysql import WkDB
 from pymysql.cursors import Cursor
+
+HOST = "localhost"
+PORT = 3306
+USER = "root"
+PASSWORD = "123456"
+DATABASE = "myproject"
+TABLE = "test_table"
 
 if __name__ == "__main__":
     # db = DB(cursorclass=Cursor)
-    db = DB()
+    db = WkDB()
     db.set_table(TABLE)
     # db.execute_many("INSERT INTO test_table(`key`, sno) VALUES(%s, %s)", [[1, "test"], [2, "test2"]])
     # db.execute_many("UPDATE test_table SET `key`=%s WHERE sno=%s", [[10, "test"], [30, "test2"]])
@@ -56,24 +63,24 @@ if __name__ == "__main__":
     for i in range(10):
         print(db.insert_row({"key": i}))
     """
-    # data = []
-    # for i in range(0, 3000):
-    #     data.append({"key": str(i), "sno": str(i), "role": str(i)})
-    # print(db.insert_rows(data))
-    # print(db.delete_many(data))
+    """ data = []
+    for i in range(0, 3000):
+        data.append({"key": str(i), "sno": str(i), "role": str(i)})
+    print(db.insert_rows(data))
+    print(db.delete_many(data))
 
-    # db.set_table(TABLE)
-    # print(db.select_all())
-    # print(db.select(sno=2))
-    # print(db.select(sno=None))
-    # print(db.select(role=None))
-    # print(db.select({"sno": "2", "role": "123"}))
-    # print(db.select({"sno": "2", "role": 123}))
-    # print(db.select({"key": "哈哈哈551"}))
+    db.set_table(TABLE)
+    print(db.select_all())
+    print(db.select(sno=2))
+    print(db.select(sno=None))
+    print(db.select(role=None))
+    print(db.select({"sno": "2", "role": "123"}))
+    print(db.select({"sno": "2", "role": 123}))
+    print(db.select({"key": "哈哈哈551"}))
 
-    # obj = {"sno": "12"}
-    # obj2 = {"key": "哈哈哈7777", "sno": "112", "role": "1"}
-    # print(db.update(obj, obj2))
+    obj = {"sno": "12"}
+    obj2 = {"key": "哈哈哈7777", "sno": "112", "role": "1"}
+    print(db.update(obj, obj2)) """
 
     # 测试create_table
     # data = {

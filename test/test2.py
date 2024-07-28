@@ -1,5 +1,5 @@
 from WkMysql import *
-from WkMysqlPool import WkMysqlPool
+from WkMysql.WkMysqlPool import WkMysqlPool
 
 # 多线程
 import threading

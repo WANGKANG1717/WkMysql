@@ -26,10 +26,10 @@ PASSWORD = "123456"
 DATABASE = "myproject"
 TABLE = "test_table"
 
-log = WkLog()
+_log = WkLog()
 
 
-class DB:
+class WkDB:
     def __init__(
         self,
         host=HOST,
@@ -54,7 +54,7 @@ class DB:
         self.conn = self.connect_db()
         self.close_flag = False
 
-        log.debug(f"Keep connect to database every {time_interval} seconds!")
+        _log.debug(f"Keep connect to database every {time_interval} seconds!")
         self.new_thread(self.keep_connect, self.time_interval)
         atexit.register(self.close)
 
@@ -70,15 +70,15 @@ class DB:
                 cursorclass=self.cursorclass,
                 **self.kwargs,
             )
-            log.debug("Successfully connected to database!")
+            _log.debug("Successfully connected to database!")
             return conn
         except Exception as e:
             msg = f"Failed to connect to database! -> {str(e)}"
-            log.error(msg)
+            _log.error(msg)
             raise Exception(msg)
 
     def close(self):
-        log.debug("Close database connection!")
+        _log.debug("Close database connection!")
         self.conn.close()
         self.close_flag = True
 
@@ -103,7 +103,7 @@ class DB:
             if self.close_flag:
                 break
             time.sleep(time_interval)
-            log.debug("Keep connect to database!")
+            _log.debug("Keep connect to database!")
             self.__test_conn()
 
     def __test_conn(self):
@@ -111,7 +111,7 @@ class DB:
         长连接时，如果长时间不进行数据库交互，连接就会关闭，再次请求就会报错
         每次使用游标的时候，都调用下这个方法
         """
-        # log.debug("__test_conn")
+        # _log.debug("__test_conn")
         # self.conn.ping()
         try:
             self.conn.ping()
@@ -159,9 +159,9 @@ class DB:
 
     def __print_info(self, cursor, func_name, success=True, error_msg=None):
         if success:
-            log.debug(f"Success: {func_name} -> {cursor._executed if type(cursor._executed) == str else cursor._executed.decode()} -> Rows affected: {cursor.rowcount}")
+            _log.debug(f"Success: {func_name} -> {cursor._executed if type(cursor._executed) == str else cursor._executed.decode()} -> Rows affected: {cursor.rowcount}")
         else:
-            log.error(f"Failure: {func_name} -> {f'{cursor._executed if type(cursor._executed) == str else cursor._executed.decode()}' if cursor._executed else 'None'} -> {error_msg}")
+            _log.error(f"Failure: {func_name} -> {f'{cursor._executed if type(cursor._executed) == str else cursor._executed.decode()}' if cursor._executed else 'None'} -> {error_msg}")
 
     def set_table(self, table):
         self.table = table
@@ -296,7 +296,7 @@ class DB:
         :return: True/False
         """
         if not obj_list:
-            log.warn("要插入的数据为空!")
+            _log.warn("要插入的数据为空!")
             return
         values = self.__get_values(obj_list)
         col_params = self.__get_col_params(obj_list[0])
@@ -362,7 +362,7 @@ class DB:
         :return: True/False
         """
         if not obj_list:
-            log.warn("要删除的数据为空!")
+            _log.warn("要删除的数据为空!")
             return
         values = self.__get_values(obj_list)
         params = self.__get_query_params(obj_list[0])

@@ -1,4 +1,4 @@
-from WkMysqlPool import WkMysqlPool
+from WkMysql.WkMysqlPool import WkDBPool
 import time
 import threading
 from WkLog import log
@@ -11,7 +11,7 @@ DATABASE = "myproject"
 TABLE = "test_table"
 
 if __name__ == "__main__":
-    pool = WkMysqlPool(
+    pool = WkDBPool(
         host=HOST,
         port=PORT,
         user=USER,

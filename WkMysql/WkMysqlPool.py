@@ -11,7 +11,7 @@
 项目地址：https://gitee.com/purify_wang/wkmysql
 """
 
-from WkMysql import DB
+from .WkMysql import WkDB
 import time
 from queue import Queue
 from threading import Lock
@@ -25,7 +25,7 @@ DATABASE = "myproject"
 TABLE = "test_table"
 
 
-class WkMysqlPool:
+class WkDBPool:
     def __init__(
         self,
         host,
@@ -62,9 +62,9 @@ class WkMysqlPool:
                 continue
         return pool
 
-    def _create_connection(self) -> DB:
+    def _create_connection(self) -> WkDB:
         # print("new_conn")
-        return DB(
+        return WkDB(
             host=self.host,
             user=self.user,
             password=self.password,
@@ -73,7 +73,7 @@ class WkMysqlPool:
             **self.kwargs,
         )
 
-    def get_connection(self) -> DB:
+    def get_connection(self) -> WkDB:
         with self.lock:
             try:
                 if self.pool.empty():
@@ -97,7 +97,7 @@ class WkMysqlPool:
             # 在上下文退出后释放连接
             self.release_connection(conn)
 
-    def release_connection(self, conn: DB):
+    def release_connection(self, conn: WkDB):
         with self.lock:
             try:
                 if self.pool.full():
