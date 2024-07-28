@@ -12,7 +12,7 @@ setup(
     long_description_content_type="text/markdown",
     author="WANGKANG",
     author_email="1686617586@qq.com",
-    url="https://github.com/WANGKANG1717/WkLog",
+    url="https://github.com/WANGKANG1717/WkDB",
     install_requires=["pymysql", "WkLog"],
     license="GPL-2.0",
     packages=find_packages(),
