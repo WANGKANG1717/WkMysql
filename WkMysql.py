@@ -488,3 +488,25 @@ class DB:
             self.conn.rollback()
             self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
             return -1
+
+    def execute_many(self, sql, values_list):
+        """
+        批量执行SQL语句
+        :param sql: SQL语句
+        :param values_list: 列表，元素为列表，每个子列表为SQL语句中占位符对应的值
+        :return: 影响行数
+
+        - demo:
+            - execute_many("INSERT INTO table_name(col1, col2) VALUES(%s, %s)", [[1, "test"], [2, "test2"]])
+            - execute_many("UPDATE table_name SET col1=%s WHERE col2=%s", [[2, "test"], [3, "test2"]])
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.executemany(sql, values_list)
+                self.conn.commit()
+                self.__print_info(cursor, sys._getframe().f_code.co_name)
+                return cursor.rowcount
+        except pymysql.Error as e:
+            self.conn.rollback()
+            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
+            return -1
