@@ -14,7 +14,10 @@
 import pymysql
 from pymysql import cursors
 import sys
-from WkLog import log
+from threading import Thread
+import time
+import atexit
+from WkLog import WkLog
 
 HOST = "localhost"
 PORT = 3306
@@ -22,6 +25,8 @@ USER = "root"
 PASSWORD = "123456"
 DATABASE = "myproject"
 TABLE = "test_table"
+
+log = WkLog()
 
 
 class DB:
@@ -33,6 +38,7 @@ class DB:
         database=DATABASE,
         port=PORT,
         cursorclass=cursors.DictCursor,
+        time_interval=60,  # 设置每隔多长时间进行一次连接测试，单位秒，目的是保持连接不断开
         **kwargs,
     ):
         self.host = host
@@ -41,10 +47,15 @@ class DB:
         self.database = database
         self.port = port
         self.cursorclass = cursorclass
+        self.time_interval = time_interval
         self.kwargs = kwargs
 
         self.table = None
         self.conn = self.connect_db()
+
+        log.debug(f"Keep connect to database every {time_interval} seconds!")
+        self.new_thread(self.keep_connect, self.time_interval)
+        atexit.register(self.close)
 
     def connect_db(self) -> pymysql.Connection:
         try:
@@ -66,6 +77,7 @@ class DB:
             raise Exception(msg)
 
     def close(self):
+        log.debug("Close database connection!")
         self.conn.close()
 
     def before_execute(func):
@@ -77,6 +89,18 @@ class DB:
             return result
 
         return wrapper
+
+    def new_thread(self, func, *args):
+        print(args)
+        t = Thread(target=func, args=args)
+        t.daemon = True
+        t.start()
+
+    def keep_connect(self, time_interval):
+        while True:
+            time.sleep(time_interval)
+            log.debug("Keep connect to database!")
+            self.__test_conn()
 
     def __test_conn(self):
         """
