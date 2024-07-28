@@ -4,6 +4,9 @@ from pymysql.cursors import Cursor
 if __name__ == "__main__":
     # db = DB(cursorclass=Cursor)
     db = DB()
+    db.set_table(TABLE)
+    # db.execute_many("INSERT INTO test_table(`key`, sno) VALUES(%s, %s)", [[1, "test"], [2, "test2"]])
+    # db.execute_many("UPDATE test_table SET `key`=%s WHERE sno=%s", [[10, "test"], [30, "test2"]])
     # db.set_table(TABLE)
     # res = db.execute("UPDATE `test_table` SET `key`=%s WHERE `sno`=%s", [22, 0])
     # print(res)
