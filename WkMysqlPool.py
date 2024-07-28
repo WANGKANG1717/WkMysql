@@ -6,6 +6,11 @@
 # @Filepath : WkMysqlPool.py
 # @Brief    : Mysql连接池
 # Copyright 2024 WANGKANG, All Rights Reserved.
+
+""" 
+项目地址：https://gitee.com/purify_wang/wkmysql
+"""
+
 from WkMysql import DB
 import time
 from queue import Queue
@@ -28,10 +33,9 @@ class WkMysqlPool:
         password,
         database,
         port,
-        max_conn=10,
         min_conn=3,
-        connection_timeout=10000,  # 连接超时：10秒
-        max_idle_timeout=60000,  # 最大空闲超时：60秒
+        max_conn=10,
+        max_idle_timeout=60 * 60,  # 最大空闲超时：1小时
         **kwargs,
     ):
         self.host = host
@@ -41,8 +45,7 @@ class WkMysqlPool:
         self.port = port
         self.max_conn: int = max_conn  # 最大连接数
         self.min_conn: int = min_conn  # 最小连接数
-        self.connection_timeout: int = connection_timeout / 1000  # 转换为秒
-        self.max_idle_timeout: int = max_idle_timeout
+        self.max_idle_timeout: int = max_idle_timeout  # 单位：秒
         self.kwargs = kwargs
 
         self.lock = Lock()
@@ -51,7 +54,12 @@ class WkMysqlPool:
     def _init_pool(self):
         pool = Queue(self.max_conn)
         for _ in range(self.min_conn):
-            pool.put((self._create_connection(), time.time()))  # 初始化最小连接, 同时记录时间戳
+            try:
+                conn = self._create_connection()
+                pool.put((conn, time.time()))  # 初始化最小连接, 同时记录时间戳
+            except Exception as e:
+                print(f"Failed to create initial connection: {e}")
+                continue
         return pool
 
     def _create_connection(self) -> DB:
@@ -65,22 +73,20 @@ class WkMysqlPool:
             **self.kwargs,
         )
 
-    def with_lock(func):
-        def wrapper(self, *args, **kwargs):
-            with self.lock:
-                return func(self, *args, **kwargs)
-
-        return wrapper
-
     def get_connection(self) -> DB:
         with self.lock:
-            print("get_connection")
-            if self.pool.empty():
-                conn = self._create_connection()
-                self.pool.put((conn, time.time()))
-
-            conn, last_time = self.pool.get()
-            return conn
+            try:
+                if self.pool.empty():
+                    conn = self._create_connection()
+                else:
+                    conn, last_time = self.pool.get()
+                    if time.time() - last_time > self.max_idle_timeout:
+                        conn.close()
+                        conn = self._create_connection()
+                return conn
+            except Exception as e:
+                print(f"Failed to get connection: {e}")
+                return None
 
     @contextmanager
     def get_conn(self):
@@ -92,57 +98,11 @@ class WkMysqlPool:
             self.release_connection(conn)
 
     def release_connection(self, conn: DB):
-        print("release_connection")
-        if self.pool.full():
-            conn.close()
-        self.pool.put((conn, time.time()))
-
-
-if __name__ == "__main__":
-    # start_time = time.time()
-    # time.sleep(1.2)
-    # print(time.time() - start_time)
-
-    # start_time = time.perf_counter()
-    # time.sleep(1.2)
-    # print(time.perf_counter() - start_time)
-    pool = WkMysqlPool(
-        host=HOST,
-        port=PORT,
-        user=USER,
-        password=PASSWORD,
-        database=DATABASE,
-        max_conn=5,
-        min_conn=3,
-    )
-    tmp_pool = []
-    print(pool.pool)
-
-    def sleep(time_):
-        print("sleep", time_)
-        time.sleep(time_)
-        if not pool.pool:
-            conn = tmp_pool.pop()
-            print("@@@@@@@@@@@@@@@@")
-            pool.put_conn(conn)
-            print("$$$$$$$$$$$$")
-
-    for _ in range(10):
-        print(_)
-        # if _ == 5:
-        #     import threading
-
-        #     threading.Thread(target=sleep, args=(1,)).start()
-        # conn = pool.get_connection()
-        # print("conn:", conn)
-        # pool.release_connection(conn)
-        # tmp_pool.append(conn)
-        # print("tmp_pool:", tmp_pool)
-        with pool.get_conn() as conn:
-            print("conn:", conn)
-
-    for conn in tmp_pool:
-        pool.release_connection(conn)
-    print(pool.pool)
-    # pool.close_all()
-    print(pool.pool)
+        with self.lock:
+            try:
+                if self.pool.full():
+                    conn.close()
+                else:
+                    self.pool.put((conn, time.time()))
+            except Exception as e:
+                print(f"Failed to release connection: {e}")
