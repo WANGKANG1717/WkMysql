@@ -11,7 +11,7 @@
 项目地址：https://gitee.com/purify_wang/wkmysql
 """
 
-from .WkMysql import WkDB
+from .WkDB import WkDB
 import time
 from queue import Queue
 from threading import Lock

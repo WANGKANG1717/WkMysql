@@ -1,8 +1,8 @@
 from WkLog import INFO
-from WkMysql import DB
+from WkDB import DB
 import time
 
-from WkMysql import log as db_log
+from WkDB import log as db_log
 
 # db_log.level = INFO
 # db_log.output_location = 1

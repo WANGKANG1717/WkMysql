@@ -79,7 +79,10 @@ class WkDB:
 
     def close(self):
         _log.debug("Close database connection!")
-        self.conn.close()
+        try:
+            self.conn.close()
+        except:
+            pass
         self.close_flag = True
 
     def before_execute(func):

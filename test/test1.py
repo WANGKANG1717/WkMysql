@@ -1,4 +1,4 @@
-from WkMysql import WkDB
+from WkDB import WkDB
 from pymysql.cursors import Cursor
 
 HOST = "localhost"

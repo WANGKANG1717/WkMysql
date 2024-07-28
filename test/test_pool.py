@@ -1,4 +1,4 @@
-from WkMysql.WkMysqlPool import WkDBPool
+from WkDB.WkDBPool import WkDBPool
 import time
 import threading
 from WkLog import log

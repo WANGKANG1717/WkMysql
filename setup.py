@@ -5,9 +5,9 @@ with open("readme.md", "r", encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
-    name="WkMysql",  # 包名
+    name="WkDB",  # 包名
     version="1.0.0",  # 版本号
-    description="Secondary encapsulation of pymysql and provision of thread pool",
+    description="The secondary encapsulation of pymysql provides a more user-friendly interface and thread pool, and will support SQLite in the future",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="WANGKANG",
