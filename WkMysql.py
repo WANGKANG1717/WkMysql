@@ -52,6 +52,7 @@ class DB:
 
         self.table = None
         self.conn = self.connect_db()
+        self.close_flag = False
 
         log.debug(f"Keep connect to database every {time_interval} seconds!")
         self.new_thread(self.keep_connect, self.time_interval)
@@ -79,6 +80,7 @@ class DB:
     def close(self):
         log.debug("Close database connection!")
         self.conn.close()
+        self.close_flag = True
 
     def before_execute(func):
         def wrapper(self, *args, **kwargs):
@@ -91,13 +93,15 @@ class DB:
         return wrapper
 
     def new_thread(self, func, *args):
-        print(args)
+        # print(args)
         t = Thread(target=func, args=args)
         t.daemon = True
         t.start()
 
     def keep_connect(self, time_interval):
         while True:
+            if self.close_flag:
+                break
             time.sleep(time_interval)
             log.debug("Keep connect to database!")
             self.__test_conn()
