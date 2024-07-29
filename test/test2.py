@@ -1,5 +1,5 @@
-from WkDB import *
-from WkDB.WkDBPool import WkMysqlPool
+from WkMysql import *
+from WkMysql.WkMysqlPool import WkMysqlPool
 
 # 多线程
 import threading
@@ -14,9 +14,7 @@ def test_multi_thread_select():
 
     tasks = []
     for i in range(1000):
-        tasks.append(
-            threading.Thread(target=db.select, args=({"id": str(random.randint(31, 100))},))
-        )
+        tasks.append(threading.Thread(target=db.select, args=({"id": str(random.randint(31, 100))},)))
 
     for task in tasks:
         task.start()

@@ -4,14 +4,14 @@
 # @Blog     : https://wangkang1717.github.io
 # @Email    : 1686617586@qq.com
 # @Filepath : WkMysqlPool.py
-# @Brief    : Mysql连接池
+# @Brief    : WkMysql连接池
 # Copyright 2024 WANGKANG, All Rights Reserved.
 
 """ 
-项目地址：https://gitee.com/purify_wang/wkmysql
+项目地址：https://gitee.com/purify_wang/wkdb
 """
 
-from .WkDB import WkDB
+from .WkMysql import WkMysql
 import time
 from queue import Queue
 from threading import Lock
@@ -25,7 +25,7 @@ DATABASE = "myproject"
 TABLE = "test_table"
 
 
-class WkDBPool:
+class WkMysqlPool:
     def __init__(
         self,
         host,
@@ -62,9 +62,9 @@ class WkDBPool:
                 continue
         return pool
 
-    def _create_connection(self) -> WkDB:
+    def _create_connection(self) -> WkMysql:
         # print("new_conn")
-        return WkDB(
+        return WkMysql(
             host=self.host,
             user=self.user,
             password=self.password,
@@ -73,7 +73,7 @@ class WkDBPool:
             **self.kwargs,
         )
 
-    def get_connection(self) -> WkDB:
+    def get_connection(self) -> WkMysql:
         with self.lock:
             try:
                 if self.pool.empty():
@@ -97,7 +97,7 @@ class WkDBPool:
             # 在上下文退出后释放连接
             self.release_connection(conn)
 
-    def release_connection(self, conn: WkDB):
+    def release_connection(self, conn: WkMysql):
         with self.lock:
             try:
                 if self.pool.full():

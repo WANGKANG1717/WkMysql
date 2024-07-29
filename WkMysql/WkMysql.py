@@ -29,7 +29,7 @@ TABLE = "test_table"
 _log = WkLog()
 
 
-class WkDB:
+class WkMysql:
     def __init__(
         self,
         host=HOST,

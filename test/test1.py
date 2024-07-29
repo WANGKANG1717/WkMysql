@@ -1,4 +1,4 @@
-from WkDB import WkDB
+from WkMysql import WkMysql
 from pymysql.cursors import Cursor
 
 HOST = "localhost"
@@ -10,12 +10,12 @@ TABLE = "test_table"
 
 if __name__ == "__main__":
     # db = DB(cursorclass=Cursor)
-    db = WkDB()
+    db = WkMysql()
     db.set_table(TABLE)
     # db.execute_many("INSERT INTO test_table(`key`, sno) VALUES(%s, %s)", [[1, "test"], [2, "test2"]])
     # db.execute_many("UPDATE test_table SET `key`=%s WHERE sno=%s", [[10, "test"], [30, "test2"]])
     # db.set_table(TABLE)
-    # res = db.execute("UPDATE `test_table` SET `key`=%s WHERE `sno`=%s", [22, 0])
+    # res = db.execute("UPDATE `test_table` SET `key`=%s WHERE `sno`=%s", [22, "0"])
     # print(res)
     # res = db.update({"id": 1111}, {"id": 1})
     # print(res)
@@ -64,7 +64,7 @@ if __name__ == "__main__":
         print(db.insert_row({"key": i}))
     """
     """ data = []
-    for i in range(0, 3000):
+    for i in range(0, 30):
         data.append({"key": str(i), "sno": str(i), "role": str(i)})
     print(db.insert_rows(data))
     print(db.delete_many(data))
@@ -151,11 +151,12 @@ if __name__ == "__main__":
     #     "entryId": "varchar(255)",
     # }
 
-    # data = {
-    #     "id": "INT PRIMARY KEY AUTO_INCREMENT",
-    #     "key": "varchar(255)",
-    #     "sno": "varchar(255)",
-    #     "role": "varchar(255)",
-    # }
-    # db.set_table("test").create_table(data, False)
-    # db.set_table("test").delete_table()
+    """ data = {
+        "id": "INT PRIMARY KEY AUTO_INCREMENT",
+        "key": "varchar(255)",
+        "sno": "varchar(255)",
+        "role": "varchar(255)",
+    }
+    db.set_table("test").create_table(data, True)
+    db.set_table("test").insert_row({"key": "123", "sno": "456", "role": "789"})
+    # db.set_table("test").delete_table() """
