@@ -6,13 +6,13 @@ with open("readme.md", "r", encoding="utf-8") as f:
 
 setup(
     name="WkMysql",  # 包名
-    version="1.0.0",  # 版本号
+    version="1.0.1",  # 版本号
     description="The secondary encapsulation of pymysql provides a more user-friendly interface and thread pool, and will support SQLite in the future",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="WANGKANG",
     author_email="1686617586@qq.com",
-    url="https://github.com/WANGKANG1717/WkMysql",
+    url="https://github.com/WANGKANG1717/WkDB",
     install_requires=["pymysql", "WkLog"],
     license="GPL-2.0",
     packages=find_packages(),
@@ -28,5 +28,4 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Topic :: Software Development :: Libraries",
     ],
-    require_python=">=3.10",
 )
