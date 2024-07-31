@@ -93,8 +93,9 @@ class WkMysql:
         def wrapper(self, *args, **kwargs):
             if self.table is None:
                 raise Exception("table is not set!")
-            self.__test_conn()
-            result = func(self, *args, **kwargs)
+            with self.lock:
+                self.__test_conn()
+                result = func(self, *args, **kwargs)
             return result
 
         return wrapper
