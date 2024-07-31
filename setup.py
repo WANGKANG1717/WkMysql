@@ -27,9 +27,7 @@ EMAIL = "1686617586@qq.com"
 REQUIRES_PYTHON = ">=3.10.0"
 LICENSE = "GPL-2.0"
 PLATFORMS = ["all"]
-INSTALL_REQUIRES = [
-    # 'requests', 'maya', 'records',
-]
+INSTALL_REQUIRES = ["pymysql", "WkLog"]
 EXTRAS_REQUIRE = {
     # 'fancy feature': ['django'],
 }
