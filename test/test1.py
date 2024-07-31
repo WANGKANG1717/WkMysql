@@ -1,5 +1,6 @@
 from WkMysql import WkMysql
 from pymysql.cursors import Cursor
+import time
 
 HOST = "localhost"
 PORT = 3306
@@ -10,8 +11,19 @@ TABLE = "test_table"
 
 if __name__ == "__main__":
     # db = DB(cursorclass=Cursor)
-    db = WkMysql()
+    time_start = time.time()
+    db = WkMysql(time_interval=1)
     db.set_table(TABLE)
+    for i in range(1000):
+        res = db.set_table(TABLE).select_all()
+        print(len(res))
+        while True:
+            for i in range(100000000):
+                pass
+            break
+        db.close()
+    time_end = time.time()
+    print("time cost:", time_end - time_start)
     # db.execute_many("INSERT INTO test_table(`key`, sno) VALUES(%s, %s)", [[1, "test"], [2, "test2"]])
     # db.execute_many("UPDATE test_table SET `key`=%s WHERE sno=%s", [[10, "test"], [30, "test2"]])
     # db.set_table(TABLE)
