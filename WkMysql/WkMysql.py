@@ -91,9 +91,9 @@ class WkMysql:
 
     def before_execute(func):
         def wrapper(self, *args, **kwargs):
-            self.__test_conn()
             if self.table is None:
                 raise Exception("table is not set!")
+            self.__test_conn()
             result = func(self, *args, **kwargs)
             return result
 
@@ -109,8 +109,6 @@ class WkMysql:
         while True:
             time.sleep(time_interval)
             with self.lock:
-                if self.close_flag:
-                    break
                 _log.debug("Keep connect to database!")
                 self.__test_conn()
 
@@ -122,6 +120,8 @@ class WkMysql:
         # _log.debug("__test_conn")
         # self.conn.ping()
         try:
+            if self.close_flag:
+                return
             self.conn.ping()
         except:
             self.conn = self.connect_db()
