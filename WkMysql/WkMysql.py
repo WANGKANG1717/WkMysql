@@ -14,7 +14,7 @@
 import pymysql
 from pymysql import cursors
 import sys
-from threading import Thread
+from threading import Thread, Lock
 import time
 import atexit
 from WkLog import WkLog
@@ -57,6 +57,7 @@ class WkMysql:
         _log.debug(f"Keep connect to database every {time_interval} seconds!")
         self.new_thread(self.keep_connect, self.time_interval)
         atexit.register(self.close)
+        self.lock = Lock()
 
     def connect_db(self) -> pymysql.Connection:
         try:
@@ -79,11 +80,14 @@ class WkMysql:
 
     def close(self):
         _log.debug("Close database connection!")
-        try:
-            self.conn.close()
-        except:
-            pass
-        self.close_flag = True
+        with self.lock:
+            try:
+                if self.close_flag:
+                    return
+                self.conn.close()
+                self.close_flag = True
+            except Exception as e:
+                _log.error(f"Failed to close database connection! -> {str(e)}")
 
     def before_execute(func):
         def wrapper(self, *args, **kwargs):
@@ -103,11 +107,12 @@ class WkMysql:
 
     def keep_connect(self, time_interval):
         while True:
-            if self.close_flag:
-                break
             time.sleep(time_interval)
-            _log.debug("Keep connect to database!")
-            self.__test_conn()
+            with self.lock:
+                if self.close_flag:
+                    break
+                _log.debug("Keep connect to database!")
+                self.__test_conn()
 
     def __test_conn(self):
         """
