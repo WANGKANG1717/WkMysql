@@ -82,8 +82,9 @@ class WkMysqlPool:
                 while self.pool.empty() and self.current_conn >= self.max_conn:
                     self.conditionLock.wait()  # 等待连接池中有空闲连接
                 if self.pool.empty():
+                    conn = self._create_connection()
                     self.current_conn += 1
-                    return self._create_connection()
+                    return conn
                 else:
                     conn, _ = self.pool.get()
                     return conn
