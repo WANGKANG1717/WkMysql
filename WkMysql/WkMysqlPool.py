@@ -14,7 +14,7 @@
 from .WkMysql import WkMysql
 import time
 from queue import Queue
-from threading import Lock
+from threading import Condition, Lock, Thread
 from contextlib import contextmanager
 
 HOST = "localhost"
@@ -48,8 +48,12 @@ class WkMysqlPool:
         self.max_idle_timeout: int = max_idle_timeout  # 单位：秒
         self.kwargs = kwargs
 
-        self.lock = Lock()
+        self.conditionLock = Condition()
         self.pool: Queue = self._init_pool()
+
+        self.current_conn = self.pool.qsize()  # 当前连接数
+        # 启动空闲连接清理线程
+        self.new_thread(self.cleanup_idle_threads)
 
     def _init_pool(self):
         pool = Queue(self.max_conn)
@@ -63,7 +67,6 @@ class WkMysqlPool:
         return pool
 
     def _create_connection(self) -> WkMysql:
-        # print("new_conn")
         return WkMysql(
             host=self.host,
             user=self.user,
@@ -73,24 +76,24 @@ class WkMysqlPool:
             **self.kwargs,
         )
 
-    def get_connection(self) -> WkMysql:
-        with self.lock:
+    def _get_connection(self) -> WkMysql:
+        with self.conditionLock:
             try:
+                while self.pool.empty() and self.current_conn >= self.max_conn:
+                    self.conditionLock.wait()  # 等待连接池中有空闲连接
                 if self.pool.empty():
-                    conn = self._create_connection()
+                    self.current_conn += 1
+                    return self._create_connection()
                 else:
-                    conn, last_time = self.pool.get()
-                    if time.time() - last_time > self.max_idle_timeout:
-                        conn.close()
-                        conn = self._create_connection()
-                return conn
+                    conn, _ = self.pool.get()
+                    return conn
             except Exception as e:
                 print(f"Failed to get connection: {e}")
                 return None
 
     @contextmanager
     def get_conn(self):
-        conn = self.get_connection()
+        conn = self._get_connection()
         try:
             yield conn  # 提供连接给调用者
         finally:
@@ -98,11 +101,40 @@ class WkMysqlPool:
             self.release_connection(conn)
 
     def release_connection(self, conn: WkMysql):
-        with self.lock:
+        with self.conditionLock:
             try:
-                if self.pool.full():
-                    conn.close()
-                else:
-                    self.pool.put((conn, time.time()))
+                self.pool.put((conn, time.time()))
             except Exception as e:
                 print(f"Failed to release connection: {e}")
+            finally:
+                self.conditionLock.notify()  # 通知其他线程有空闲连接
+
+    def close_connections(self, conn):
+        with self.conditionLock:
+            try:
+                conn.close()  # 关闭空闲连接
+            except Exception as e:
+                print(f"Failed to close connection: {e}")
+            finally:
+                self.current_conn -= 1
+                self.conditionLock.notify()
+
+    def new_thread(self, func, *args):
+        t = Thread(target=func, args=args)
+        t.daemon = True
+        t.start()
+
+    def cleanup_idle_threads(self):
+        while True:
+            time.sleep(self.max_idle_timeout)
+            print("cleanup_idle_threads")
+            temp_pool = []
+            while not self.pool.empty():
+                conn, last_use_time = self.pool.get()
+                if time.time() - last_use_time > self.max_idle_timeout and self.current_conn > self.min_conn:
+                    self.close_connections(conn)
+                    print(f"Closed idle connection: {conn}")
+                else:
+                    temp_pool.append((conn, last_use_time))
+            for conn, last_use_time in temp_pool:
+                self.release_connection(conn)
