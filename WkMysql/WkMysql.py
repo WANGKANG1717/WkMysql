@@ -198,7 +198,6 @@ class WkMysql:
             self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
             return False
 
-    @before_execute
     def delete_table(self):
         """
         删除表
