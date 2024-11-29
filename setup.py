@@ -20,7 +20,7 @@ from setuptools import find_packages, setup, Command
 # Package meta-data.
 NAME = "WkMysql"
 DESCRIPTION = "The secondary encapsulation of pymysql provides a more user-friendly interface and thread pool, and will support SQLite in the future."
-URL = "https://github.com/WANGKANG1717/WkDB"  # Github
+URL = "https://gitee.com/purify_wang/wk-mysql"  # Github
 # URL = "https://gitee.com/purify_wang/git_name" # Gitee
 AUTHOR = "WANGKANG"
 EMAIL = "1686617586@qq.com"

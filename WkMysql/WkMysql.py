@@ -8,7 +8,7 @@
 # Copyright 2023 WANGKANG, All Rights Reserved.
 
 """ 
-项目地址：https://gitee.com/purify_wang/wkdb
+项目地址：https://gitee.com/purify_wang/wk-mysql
 """
 
 import pymysql
