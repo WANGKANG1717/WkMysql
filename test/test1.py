@@ -1,4 +1,4 @@
-from WkMysql import WkMysql
+from WkMysql.WkMysql import WkMysql
 from pymysql.cursors import Cursor
 import time
 
@@ -12,18 +12,26 @@ TABLE = "test_table"
 if __name__ == "__main__":
     # db = DB(cursorclass=Cursor)
     time_start = time.time()
-    db = WkMysql(time_interval=1)
-    db.set_table(TABLE)
-    for i in range(1000):
-        res = db.set_table(TABLE).select_all()
-        print(len(res))
-        while True:
-            for i in range(100000000):
-                pass
-            break
-        db.close()
-    time_end = time.time()
-    print("time cost:", time_end - time_start)
+    db = WkMysql(host=HOST, user=USER, password=PASSWORD, database=DATABASE)
+    db.set_table(TABLE).create_table(
+        {
+            "id": "INT PRIMARY KEY AUTO_INCREMENT",
+            "key": "varchar(255)",
+            "sno": "varchar(255)",
+            "role": "varchar(255)",
+        },
+        delete_if_exists=False,
+    )
+    # print(db.select_all())
+    # print(db.select_one(id=1))
+    # print(db.select(id=1))
+    # print(db.select(name="2"))
+    # for i in range(1000):
+    #     res = db.set_table(TABLE).select_all()
+    #     print(len(res))
+    # db.close()
+    # time_end = time.time()
+    # print("time cost:", time_end - time_start)
     # db.execute_many("INSERT INTO test_table(`key`, sno) VALUES(%s, %s)", [[1, "test"], [2, "test2"]])
     # db.execute_many("UPDATE test_table SET `key`=%s WHERE sno=%s", [[10, "test"], [30, "test2"]])
     # db.set_table(TABLE)
@@ -46,53 +54,53 @@ if __name__ == "__main__":
     # print(db.set_table(TABLE).exists({"key": "xE2tX7cN8iZ6xQ1uG", "sno": ""}))
     # print(db.set_table(TABLE).exists({"key1": "xE2tX7cN8iZ6xQ1uG", "sno": ""}))
     """ insert_row/insert_rows """
-    """ db.set_table(TABLE)
-    obj = {"key": "哈哈哈4441", "sno": "2222222222222222222", "role": 1}
-    obj2 = {"key": "哈哈哈4444", "sno": "333333333333333333333", "role": ""}
-    obj3 = {"key": "哈哈哈55", "sno": "444444444444444444' or 1=1", "role": None}
-    id = db.insert_row(obj2)
-    print(id)
-    obj_list = [obj, obj2, obj3]
-    res = db.insert_rows(obj_list)
-    print(res)
-    res = db.set_table(TABLE).insert_row(id=22, key="wangkang", sno="3123358142", role="All")
-    print(res)
-    res = db.insert_many(obj_list)
-    print(res) """
+    # db.set_table(TABLE)
+    # obj = {"key": "哈哈哈4441", "sno": "2222222222222222222", "role": 1}
+    # obj2 = {"key": "哈哈哈4444", "sno": "333333333333333333333", "role": ""}
+    # obj3 = {"key": "哈哈哈55", "sno": "444444444444444444' or 1=1", "role": None}
+    # id = db.insert_row(obj2)
+    # print(id)
+    # obj_list = [obj, obj2, obj3]
+    # res = db.insert_rows(obj_list)
+    # print(res)
+    # res = db.set_table(TABLE).insert_row(id=22, key="wangkang", sno="3123358142", role="All")
+    # print(res)
+    # res = db.insert_many(obj_list)
+    # print(res)
 
     """ delete """
-    """ obj = {"key": "哈哈哈4441", "sno": "2", "role": 1}
-    obj2 = {"key": "哈哈哈4444", "sno": "2", "role": ""}
-    obj3 = {"key": "哈哈哈55", "sno": "3", "role": None}
-    obj_list = [obj, obj2, obj3]
-    print(db.set_table(TABLE).insert_many(obj_list))
-    print(db.delete_row(key="哈哈哈4444"))
-    print(db.delete_row(sno="2"))
-    print(db.delete_row({"key": "3", "sno": 2, "role": None}))
-    print(db.delete_row({"key": "3", "sno": 3, "role": 3}))
-    print(db.delete_row({"role": "1"}))
-    print(db.delete_rows(obj_list))
-    for i in range(10):
-        print(db.insert_row({"key": i}))
-    """
-    """ data = []
-    for i in range(0, 30):
-        data.append({"key": str(i), "sno": str(i), "role": str(i)})
-    print(db.insert_rows(data))
-    print(db.delete_many(data))
+    # obj = {"key": "哈哈哈4441", "sno": "2", "role": 1}
+    # obj2 = {"key": "哈哈哈4444", "sno": "2", "role": ""}
+    # obj3 = {"key": "哈哈哈55", "sno": "3", "role": None}
+    # obj_list = [obj, obj2, obj3]
+    # print(db.set_table(TABLE).insert_many(obj_list))
+    # print(db.delete_row(key="哈哈哈4444"))
+    # print(db.delete_row(sno="2"))
+    # print(db.delete_row({"key": "3", "sno": 2, "role": None}))
+    # print(db.delete_row({"key": "3", "sno": 3, "role": 3}))
+    # print(db.delete_row({"role": "1"}))
+    # print(db.delete_rows(obj_list))
+    # for i in range(10):
+    #     print(db.insert_row({"key": i}))
 
-    db.set_table(TABLE)
-    print(db.select_all())
-    print(db.select(sno=2))
-    print(db.select(sno=None))
-    print(db.select(role=None))
-    print(db.select({"sno": "2", "role": "123"}))
-    print(db.select({"sno": "2", "role": 123}))
-    print(db.select({"key": "哈哈哈551"}))
+    # data = []
+    # for i in range(0, 30):
+    #     data.append({"key": str(i), "sno": str(i), "role": str(i)})
+    # print(db.insert_rows(data))
+    # print(db.delete_many(data))
 
-    obj = {"sno": "12"}
-    obj2 = {"key": "哈哈哈7777", "sno": "112", "role": "1"}
-    print(db.update(obj, obj2)) """
+    # db.set_table(TABLE)
+    # print(db.select_all())
+    # print(db.select(sno=2))
+    # print(db.select(sno=None))
+    # print(db.select(role=None))
+    # print(db.select({"sno": "2", "role": "123"}))
+    # print(db.select({"sno": "2", "role": 123}))
+    # print(db.select({"key": "哈哈哈551"}))
+
+    # obj = {"sno": "12"}
+    # obj2 = {"key": "哈哈哈7777", "sno": "112", "role": "1"}
+    # print(db.update(obj, obj2))
 
     # 测试create_table
     # data = {
@@ -163,7 +171,7 @@ if __name__ == "__main__":
     #     "entryId": "varchar(255)",
     # }
 
-    """ data = {
+    data = {
         "id": "INT PRIMARY KEY AUTO_INCREMENT",
         "key": "varchar(255)",
         "sno": "varchar(255)",
@@ -171,4 +179,4 @@ if __name__ == "__main__":
     }
     db.set_table("test").create_table(data, True)
     db.set_table("test").insert_row({"key": "123", "sno": "456", "role": "789"})
-    # db.set_table("test").delete_table() """
+    # db.set_table("test").delete_table()
