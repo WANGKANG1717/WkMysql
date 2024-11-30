@@ -1,24 +1,18 @@
 # -*- coding: utf-8 -*-
-# @Date     : 2023-10-13 13:00:00
-# @Author   : WangKang
-# @Blog     :
+# @Date     : 2024-11-30 10:37:27
+# @Author   : WANGKANG
+# @Blog     : https://wangkang1717.github.io
 # @Email    : 1686617586@qq.com
 # @Filepath : WkMysql.py
-# @Brief    : 封装数据库操作，适合单线程使用，且短时间连接数据库
-# Copyright 2023 WANGKANG, All Rights Reserved.
+# @Brief    : WkMysql封装类
+# Copyright 2024 WANGKANG, All Rights Reserved.
 
 """ 
 项目地址：https://gitee.com/purify_wang/wk-mysql
 """
 
-import pymysql
-from pymysql import cursors
-import sys
-from threading import Thread, Lock
-import time
-import atexit
-from WkLog import WkLog
-
+""" 
+使用示例
 HOST = "localhost"
 PORT = 3306
 USER = "root"
@@ -26,18 +20,37 @@ PASSWORD = "123456"
 DATABASE = "myproject"
 TABLE = "test_table"
 
-_log = WkLog()
+db = WkMysql(host=HOST, user=USER, password=PASSWORD, database=DATABASE)
+db.set_table(TABLE).create_table(
+    {
+        "id": "INT PRIMARY KEY AUTO_INCREMENT",
+        "key": "varchar(255)",
+        "sno": "varchar(255)",
+        "role": "varchar(255)",
+    },
+    delete_if_exists=False,
+)
+"""
+
+import atexit
+from contextlib import contextmanager
+import pymysql
+from pymysql.cursors import Cursor
+import sys
+import time
+from threading import Lock, Thread
+import traceback
+from WkLog import WkLog
 
 
 class WkMysql:
     def __init__(
         self,
-        host=HOST,
-        user=USER,
-        password=PASSWORD,
-        database=DATABASE,
-        port=PORT,
-        cursorclass=cursors.DictCursor,
+        host,
+        user,
+        password,
+        database,
+        port=3306,
         time_interval=60,  # 设置每隔多长时间进行一次连接测试，单位秒，目的是保持连接不断开
         **kwargs,
     ):
@@ -46,40 +59,43 @@ class WkMysql:
         self.password = password
         self.database = database
         self.port = port
-        self.cursorclass = cursorclass
         self.time_interval = time_interval
         self.kwargs = kwargs
 
-        self.table = None
-        self.conn = self.connect_db()
-        self.close_flag = False
+        self.table: str = None
+        self.time_interval = time_interval
+        self.last_connect_time = None  # 上次连接时间
+        self.close_flag: bool = False
 
-        _log.debug(f"Keep connect to database every {time_interval} seconds!")
-        self.new_thread(self.keep_connect, self.time_interval)
-        atexit.register(self.close)
+        self._log = WkLog()
         self.lock = Lock()
+
+        self.conn: pymysql.Connection = self.connect_db()
+        atexit.register(self.close)
+
+        self.new_thread(self.keep_connect, self.time_interval)
 
     def connect_db(self) -> pymysql.Connection:
         try:
             conn = pymysql.connect(
                 host=self.host,
                 user=self.user,
-                port=self.port,
-                passwd=self.password,
+                password=self.password,
                 database=self.database,
+                port=self.port,
                 autocommit=True,
-                cursorclass=self.cursorclass,
                 **self.kwargs,
             )
-            _log.debug("Successfully connected to database!")
+            self._log.debug("Successfully connected to database!")
+            self.last_connect_time = time.time()
             return conn
         except Exception as e:
             msg = f"Failed to connect to database! -> {str(e)}"
-            _log.error(msg)
+            self._log.error(msg)
             raise Exception(msg)
 
     def close(self):
-        _log.debug("Close database connection!")
+        self._log.debug("Close database connection!")
         with self.lock:
             try:
                 if self.close_flag:
@@ -87,7 +103,7 @@ class WkMysql:
                 self.conn.close()
                 self.close_flag = True
             except Exception as e:
-                _log.error(f"Failed to close database connection! -> {str(e)}")
+                self._log.error(f"Failed to close database connection! -> {str(e)}")
 
     def before_execute(func):
         def wrapper(self, *args, **kwargs):
@@ -107,10 +123,11 @@ class WkMysql:
         t.start()
 
     def keep_connect(self, time_interval):
+        self._log.debug(f"Keep connect to database every {time_interval} seconds!")
         while True:
             time.sleep(time_interval)
             with self.lock:
-                _log.debug("Keep connect to database!")
+                self._log.debug("Keep connect to database!")
                 self.__test_conn()
 
     def __test_conn(self):
@@ -118,13 +135,17 @@ class WkMysql:
         长连接时，如果长时间不进行数据库交互，连接就会关闭，再次请求就会报错
         每次使用游标的时候，都调用下这个方法
         """
-        # _log.debug("__test_conn")
-        # self.conn.ping()
         try:
             if self.close_flag:
                 return
-            self.conn.ping()
+            current_time = time.time()
+            if current_time - self.last_connect_time >= self.time_interval:
+                print("__test_conn")
+                with self.get_cursor() as cursor:
+                    cursor.execute("SELECT 1")
+                self.last_connect_time = current_time
         except:
+            print(traceback.format_exc())
             self.conn = self.connect_db()
 
     def __get_query_params(self, obj: dict | list):
@@ -166,17 +187,47 @@ class WkMysql:
             if len(args) > 1 or not isinstance(args[0], dict):
                 raise Exception("args's length must be 1 and the type must be dict!")
 
-    def __print_info(self, cursor, func_name, success=True, error_msg=None):
+    def __package_data(self, data: list | tuple | None, cursor: Cursor):
+        """用来封装数据: 把数据封装为json数据"""
+        json_data = []
+        try:
+            if data is None:
+                return None
+
+            column_names = [desc[0] for desc in cursor.description]  # 获取列名
+            if type(data) == list:
+                for d in data:
+                    json_data.append(dict(zip(column_names, d)))
+                return json_data
+            elif type(data) == tuple:
+                return dict(zip(column_names, data))
+            else:
+                raise TypeError("data类型错误，应为列表或元组")
+        except Exception as e:
+            self._log.error(f"封装数据失败 -> {str(e)}")
+            return None
+
+    def __print_info(self, func_name, sql=None, values=None, success=True, error_msg=None, cursor: Cursor = None):
         if success:
-            _log.debug(f"Success: {func_name} -> {cursor._executed if type(cursor._executed) == str else cursor._executed.decode()} -> Rows affected: {cursor.rowcount}")
+            self._log.debug(f"Success: {func_name} -> {sql} -> {values} -> Rows affected: {cursor.rowcount}")
         else:
-            _log.error(f"Failure: {func_name} -> {f'{cursor._executed if type(cursor._executed) == str else cursor._executed.decode()}' if cursor._executed else 'None'} -> {error_msg}")
+            self._log.error(f"Failure: {func_name} -> {sql} -> {values} -> {error_msg}")
 
     def set_table(self, table):
         self.table = table
         return self
 
-    @before_execute
+    @contextmanager
+    def get_cursor(self):
+        try:
+            cursor = self.conn.cursor()
+            yield cursor
+        except Exception as e:
+            self.conn.rollback()
+            raise e
+        finally:
+            cursor.close()
+
     def create_table(self, obj: dict, delete_if_exists=False):
         """
         创建表
@@ -184,20 +235,25 @@ class WkMysql:
         :param delete_if_exists: 是否删除原有表
         :return: True/False
         """
-        col_params = ", ".join([f"`{column_name}` {column_type}" for column_name, column_type in obj.items()])
         if delete_if_exists:
             self.delete_table()
+        return self.__create_table(obj)
 
+    @before_execute
+    def __create_table(self, obj: dict):
+        self.__get_set_params(obj)
+        col_params = ", ".join([f"`{column_name}` {column_type}" for column_name, column_type in obj.items()])
         sql = f"CREATE TABLE IF NOT EXISTS {self.table} ({col_params})"
         try:
-            with self.conn.cursor() as cursor:
+            with self.get_cursor() as cursor:
                 cursor.execute(sql)
-                self.__print_info(cursor, sys._getframe().f_code.co_name)
-            return True
-        except pymysql.Error as e:
-            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
+                self.__print_info(sys._getframe().f_code.co_name, sql=sql, cursor=cursor)
+                return True
+        except Exception as e:
+            self.__print_info(sys._getframe().f_code.co_name, sql=sql, success=False, error_msg=str(e))
             return False
 
+    @before_execute
     def delete_table(self):
         """
         删除表
@@ -205,26 +261,25 @@ class WkMysql:
         """
         sql = f"DROP TABLE IF EXISTS {self.table}"
         try:
-            with self.conn.cursor() as cursor:
+            with self.get_cursor() as cursor:
                 cursor.execute(sql)
-                self.__print_info(cursor, sys._getframe().f_code.co_name)
-            return True
-        except pymysql.Error as e:
-            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
+                self.__print_info(sys._getframe().f_code.co_name, sql=sql, cursor=cursor)
+                return True
+        except Exception as e:
+            self.__print_info(sys._getframe().f_code.co_name, sql=sql, success=False, error_msg=str(e))
             return False
 
+    @before_execute
     def get_column_names(self):
-        sql = "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s"
+        sql = f"PRAGMA table_info({self.table})"
         try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(sql, (self.database, self.table))
-                res = []
-                for row in cursor.fetchall():
-                    res.append(row.get("COLUMN_NAME"))
-                self.__print_info(cursor, sys._getframe().f_code.co_name)
-            return res
-        except pymysql.Error as e:
-            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
+            with self.get_cursor() as cursor:
+                cursor.execute(sql)
+                column_names = [column[1] for column in cursor.fetchall()]
+                self.__print_info(sys._getframe().f_code.co_name, sql=sql, cursor=cursor)
+                return column_names
+        except Exception as e:
+            self.__print_info(sys._getframe().f_code.co_name, sql=sql, success=False, error_msg=str(e))
             return []
 
     @before_execute
@@ -242,13 +297,13 @@ class WkMysql:
         params = self.__get_query_params(obj)
         sql = f"SELECT 1 FROM {self.table} WHERE {params} LIMIT 1"
         try:
-            with self.conn.cursor() as cursor:
+            with self.get_cursor() as cursor:
                 cursor.execute(sql, values)
                 flag = cursor.fetchone() != None
-                self.__print_info(cursor, sys._getframe().f_code.co_name)
-            return flag
-        except pymysql.Error as e:
-            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
+                self.__print_info(sys._getframe().f_code.co_name, sql=sql, values=values, cursor=cursor)
+                return flag
+        except Exception as e:
+            self.__print_info(sys._getframe().f_code.co_name, sql=sql, values=values, success=False, error_msg=str(e))
             return False
 
     @before_execute
@@ -268,15 +323,15 @@ class WkMysql:
         placeholders = self.__get_placeholders(len(obj))
         sql = f"INSERT INTO {self.table}({col_params}) VALUES({placeholders})"
         try:
-            with self.conn.cursor() as cursor:
+            with self.get_cursor() as cursor:
                 cursor.execute(sql, values)
                 self.conn.commit()
-                self.__print_info(cursor, sys._getframe().f_code.co_name)
+                self.__print_info(sys._getframe().f_code.co_name, sql=sql, values=values, cursor=cursor)
                 return cursor.rowcount, cursor.lastrowid  # 获取插入数据的自增ID,如果没有自增ID，则返回0
-        except pymysql.Error as e:
+        except Exception as e:
             self.conn.rollback()
-            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
-            return -1, -1
+            self.__print_info(sys._getframe().f_code.co_name, sql=sql, values=values, success=False, error_msg=str(e))
+            return -1
 
     def insert_rows(self, obj_list: list[dict]):
         """
@@ -304,21 +359,21 @@ class WkMysql:
         :return: True/False
         """
         if not obj_list:
-            _log.warn("要插入的数据为空!")
+            self._log.warn("要插入的数据为空!")
             return
         values = self.__get_values(obj_list)
         col_params = self.__get_col_params(obj_list[0])
         placeholders = self.__get_placeholders(len(obj_list[0].keys()))
         sql = f"INSERT INTO {self.table}({col_params}) VALUES({placeholders})"
         try:
-            with self.conn.cursor() as cursor:
+            with self.get_cursor() as cursor:
                 cursor.executemany(sql, values)
                 self.conn.commit()
-                self.__print_info(cursor, sys._getframe().f_code.co_name)
+                self.__print_info(sys._getframe().f_code.co_name, sql=sql, values=values, cursor=cursor)
                 return cursor.rowcount
         except Exception as e:
             self.conn.rollback()
-            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
+            self.__print_info(sys._getframe().f_code.co_name, sql=sql, values=values, success=False, error_msg=str(e))
             return False
 
     @before_execute
@@ -336,14 +391,14 @@ class WkMysql:
         params = self.__get_query_params(obj)
         sql = f"DELETE FROM {self.table} WHERE {params}"
         try:
-            with self.conn.cursor() as cursor:
+            with self.get_cursor() as cursor:
                 cursor.execute(sql, values)
                 self.conn.commit()
-                self.__print_info(cursor, sys._getframe().f_code.co_name)
+                self.__print_info(sys._getframe().f_code.co_name, sql=sql, values=values, cursor=cursor)
                 return cursor.rowcount
-        except pymysql.Error as e:
+        except Exception as e:
             self.conn.rollback()
-            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
+            self.__print_info(sys._getframe().f_code.co_name, sql=sql, values=values, success=False, error_msg=str(e))
             return -1
 
     def delete_rows(self, obj_list: list):
@@ -370,21 +425,21 @@ class WkMysql:
         :return: True/False
         """
         if not obj_list:
-            _log.warn("要删除的数据为空!")
+            self._log.warn("要删除的数据为空!")
             return
         values = self.__get_values(obj_list)
         params = self.__get_query_params(obj_list[0])
         # print(params)
         sql = f"DELETE FROM {self.table} WHERE {params}"
         try:
-            with self.conn.cursor() as cursor:
+            with self.get_cursor() as cursor:
                 cursor.executemany(sql, values)
                 self.conn.commit()
-                self.__print_info(cursor, sys._getframe().f_code.co_name)
+                self.__print_info(sys._getframe().f_code.co_name, sql=sql, values=values, cursor=cursor)
                 return cursor.rowcount
-        except pymysql.Error as e:
+        except Exception as e:
             self.conn.rollback()
-            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
+            self.__print_info(sys._getframe().f_code.co_name, sql=sql, values=values, success=False, error_msg=str(e))
             return -1
 
     @before_execute
@@ -395,13 +450,14 @@ class WkMysql:
         """
         sql = f"SELECT * FROM {self.table}"
         try:
-            with self.conn.cursor() as cursor:
+            with self.get_cursor() as cursor:
                 cursor.execute(sql)
                 data = cursor.fetchall()
-                self.__print_info(cursor, sys._getframe().f_code.co_name)
-            return data
-        except pymysql.Error as e:
-            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
+                self.__print_info(sys._getframe().f_code.co_name, sql=sql, cursor=cursor)
+                return self.__package_data(list(data), cursor)
+        except Exception as e:
+            print(traceback.format_exc())
+            self.__print_info(sys._getframe().f_code.co_name, sql=sql, success=False, error_msg=str(e))
             return None
 
     @before_execute
@@ -421,13 +477,13 @@ class WkMysql:
         # print(f"|{col_names}|{col_params}|{values}|{param}|")
         sql = f"SELECT * FROM {self.table} where {param}"
         try:
-            with self.conn.cursor() as cursor:
+            with self.get_cursor() as cursor:
                 cursor.execute(sql, values)
                 data = cursor.fetchall()
-                self.__print_info(cursor, sys._getframe().f_code.co_name)
-            return data
-        except pymysql.Error as e:
-            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
+                self.__print_info(sys._getframe().f_code.co_name, sql=sql, values=values, cursor=cursor)
+                return self.__package_data(list(data), cursor)
+        except Exception as e:
+            self.__print_info(sys._getframe().f_code.co_name, sql=sql, values=values, success=False, error_msg=str(e))
             return None
 
     @before_execute
@@ -446,13 +502,13 @@ class WkMysql:
         param = self.__get_query_params(obj)
         sql = f"SELECT * FROM {self.table} where {param} LIMIT 1"
         try:
-            with self.conn.cursor() as cursor:
+            with self.get_cursor() as cursor:
                 cursor.execute(sql, values)
                 data = cursor.fetchone()
-                self.__print_info(cursor, sys._getframe().f_code.co_name)
-            return data
-        except pymysql.Error as e:
-            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
+                self.__print_info(sys._getframe().f_code.co_name, sql=sql, values=values, cursor=cursor)
+                return self.__package_data(data, cursor)
+        except Exception as e:
+            self.__print_info(sys._getframe().f_code.co_name, sql=sql, values=values, success=False, error_msg=str(e))
             return None
 
     @before_execute
@@ -468,14 +524,14 @@ class WkMysql:
         query_params = self.__get_query_params(target_obj)
         sql = f"UPDATE {self.table} set {set_params} where {query_params}"
         try:
-            with self.conn.cursor() as cursor:
+            with self.get_cursor() as cursor:
                 cursor.execute(sql, values)
                 self.conn.commit()
-                self.__print_info(cursor, sys._getframe().f_code.co_name)
+                self.__print_info(sys._getframe().f_code.co_name, sql=sql, values=values, cursor=cursor)
                 return cursor.rowcount
-        except pymysql.Error as e:
+        except Exception as e:
             self.conn.rollback()
-            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
+            self.__print_info(sys._getframe().f_code.co_name, sql=sql, values=values, success=False, error_msg=str(e))
             return -1
 
     @before_execute
@@ -487,20 +543,24 @@ class WkMysql:
         :return: 影响行数
 
         - demo:
-            - execute("INSERT INTO table_name(col1, col2) VALUES(%s, %s)", [1, "test"])
-            - execute("UPDATE table_name SET col1=%s WHERE col2=%s", [2, "test"])
+            - execute("INSERT INTO table_name(col1, col2) VALUES(?, ?)", [1, "test"])
+            - execute("UPDATE table_name SET col1=? WHERE col2=?", [2, "test"])
         """
         try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(sql, values)
+            with self.get_cursor() as cursor:
+                # raise Exception("1")
+                if values is None:
+                    cursor.execute(sql)
+                else:
+                    cursor.execute(sql, values)
                 self.conn.commit()
-                self.__print_info(cursor, sys._getframe().f_code.co_name)
+                self.__print_info(sys._getframe().f_code.co_name, sql=sql, values=values, cursor=cursor)
                 return cursor.rowcount
-        except pymysql.Error as e:
-            self.conn.rollback()
-            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
+        except Exception as e:
+            self.__print_info(sys._getframe().f_code.co_name, sql=sql, values=values, success=False, error_msg=str(e))
             return -1
 
+    @before_execute
     def execute_many(self, sql, values_list):
         """
         批量执行SQL语句
@@ -509,16 +569,16 @@ class WkMysql:
         :return: 影响行数
 
         - demo:
-            - execute_many("INSERT INTO table_name(col1, col2) VALUES(%s, %s)", [[1, "test"], [2, "test2"]])
-            - execute_many("UPDATE table_name SET col1=%s WHERE col2=%s", [[2, "test"], [3, "test2"]])
+            - execute_many("INSERT INTO table_name(col1, col2) VALUES(?, ?)", [[1, "test"], [2, "test2"]])
+            - execute_many("UPDATE table_name SET col1=? WHERE col2=?", [[2, "test"], [3, "test2"]])
         """
         try:
-            with self.conn.cursor() as cursor:
+            with self.get_cursor() as cursor:
                 cursor.executemany(sql, values_list)
                 self.conn.commit()
-                self.__print_info(cursor, sys._getframe().f_code.co_name)
+                self.__print_info(cursor, sys._getframe().f_code.co_name, sql=sql, values=values_list)
                 return cursor.rowcount
-        except pymysql.Error as e:
+        except Exception as e:
             self.conn.rollback()
-            self.__print_info(cursor, sys._getframe().f_code.co_name, success=False, error_msg=str(e))
+            self.__print_info(sys._getframe().f_code.co_name, sql=sql, values=values_list, success=False, error_msg=str(e))
             return -1
