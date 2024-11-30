@@ -11,11 +11,12 @@
 项目地址：https://gitee.com/purify_wang/wkdb
 """
 
-from .WkMysql import WkMysql, _log
+from .WkMysql import WkMysql
 import time
 from queue import Queue
 from threading import Condition, Lock, Thread
 from contextlib import contextmanager
+from WkLog import WkLog
 
 HOST = "localhost"
 PORT = 3306
@@ -48,6 +49,8 @@ class WkMysqlPool:
         self.max_idle_timeout: int = max_idle_timeout  # 单位：秒
         self.kwargs = kwargs
 
+        self._log = WkLog()
+
         self.conditionLock = Condition()
         self.pool: Queue = self._init_pool()
 
@@ -62,7 +65,7 @@ class WkMysqlPool:
                 conn = self._create_connection()
                 pool.put((conn, time.time()))  # 初始化最小连接, 同时记录时间戳
             except Exception as e:
-                _log.error(f"Failed to create initial connection: {e}")
+                self._log.error(f"Failed to create initial connection: {e}")
                 continue
         return pool
 
@@ -89,7 +92,7 @@ class WkMysqlPool:
                     conn, _ = self.pool.get()
                     return conn
             except Exception as e:
-                _log.error(f"Failed to get connection: {e}")
+                self._log.error(f"Failed to get connection: {e}")
                 return None
 
     @contextmanager
@@ -106,7 +109,7 @@ class WkMysqlPool:
             try:
                 self.pool.put((conn, time.time()))
             except Exception as e:
-                _log.error(f"Failed to release connection: {e}")
+                self._log.error(f"Failed to release connection: {e}")
             finally:
                 self.conditionLock.notify()  # 通知其他线程有空闲连接
 
@@ -115,7 +118,7 @@ class WkMysqlPool:
             try:
                 conn.close()  # 关闭空闲连接
             except Exception as e:
-                _log.error(f"Failed to close connection: {e}")
+                self._log.error(f"Failed to close connection: {e}")
             finally:
                 self.current_conn -= 1
                 self.conditionLock.notify()
@@ -128,13 +131,13 @@ class WkMysqlPool:
     def cleanup_idle_threads(self):
         while True:
             time.sleep(self.max_idle_timeout)
-            _log.debug("cleanup_idle_threads")
+            self._log.debug("cleanup_idle_threads")
             temp_pool = []
             while not self.pool.empty():
                 conn, last_use_time = self.pool.get()
                 if time.time() - last_use_time > self.max_idle_timeout and self.current_conn > self.min_conn:
                     self.close_connections(conn)
-                    _log.debug(f"Closed idle connection: {conn}")
+                    self._log.debug(f"Closed idle connection: {conn}")
                 else:
                     temp_pool.append((conn, last_use_time))
             for conn, last_use_time in temp_pool:
