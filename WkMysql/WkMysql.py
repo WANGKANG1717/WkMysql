@@ -579,7 +579,7 @@ class WkMysql:
             with self.get_cursor() as cursor:
                 cursor.executemany(sql, values_list)
                 self.conn.commit()
-                self.__print_info(cursor, sys._getframe().f_code.co_name, sql=sql, values=values_list)
+                self.__print_info(sys._getframe().f_code.co_name, sql=sql, values=values_list, cursor=cursor)
                 return cursor.rowcount
         except Exception as e:
             self.conn.rollback()
