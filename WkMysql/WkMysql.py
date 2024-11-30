@@ -271,15 +271,18 @@ class WkMysql:
 
     @before_execute
     def get_column_names(self):
-        sql = f"PRAGMA table_info({self.table})"
+        sql = "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s"
         try:
-            with self.get_cursor() as cursor:
-                cursor.execute(sql)
-                column_names = [column[1] for column in cursor.fetchall()]
-                self.__print_info(sys._getframe().f_code.co_name, sql=sql, cursor=cursor)
-                return column_names
-        except Exception as e:
-            self.__print_info(sys._getframe().f_code.co_name, sql=sql, success=False, error_msg=str(e))
+            values = (self.database, self.table)
+            with self.conn.cursor() as cursor:
+                cursor.execute(sql, values)
+                res = []
+                for row in cursor.fetchall():
+                    res.append(row[0])
+                self.__print_info(sys._getframe().f_code.co_name, sql=sql, values=values, cursor=cursor)
+            return res
+        except pymysql.Error as e:
+            self.__print_info(sys._getframe().f_code.co_name, success=False, error_msg=str(e))
             return []
 
     @before_execute
