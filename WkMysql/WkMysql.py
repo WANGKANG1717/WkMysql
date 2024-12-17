@@ -140,7 +140,7 @@ class WkMysql:
                 return
             current_time = time.time()
             if current_time - self.last_connect_time >= self.time_interval:
-                print("__test_conn")
+                self._log.debug("__test_conn")
                 with self.get_cursor() as cursor:
                     cursor.execute("SELECT 1")
                 self.last_connect_time = current_time

@@ -1,5 +1,5 @@
 from .WkMysql import WkMysql
 from .WkMysqlPool import WkMysqlPool
 
-__version__ = "1.1.2.1.1"
+__version__ = "1.1.2.2"
 __all__ = ["__version__", "WkMysql", "WkMysqlPool"]
